@@ -166,7 +166,7 @@ int main(int argc, const char *argv[]) {
 	}
 	configFile.open(configFileName);
 	configFile << rate << "\n" << numChan << "\n" << vRange << "\n" << duration << endl;
-
+	configFile.flush();
 
 	// Acquire device(s)
 	detectError = ulGetDaqDeviceInventory(interfaceType, devDescriptors, &numDevs);
@@ -341,5 +341,6 @@ void asciiOrBinaryAsyncMessageReceived(void* userData, Packet& p, size_t index)
 			// Not the type of binary packet we are expecting.
 			return;
 		vecFile.write(p.datastr().c_str(), PACKETSIZE );
+		vecFile.flush();
 	}
 }
