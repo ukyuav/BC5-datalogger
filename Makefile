@@ -8,9 +8,12 @@ FLAGS = -Wall -g
 SOURCE = main
 EXEC = getData
 
+all: $(EXEC) extract
+
 $(EXEC) : $(SOURCE).cpp
 	g++ $(FLAGS) -o $@ $^ $(LIBPATH) $(LIBS) $(INCLUDE)
 
+extract: extract.cpp
+	g++ $(FLAGS) -o $@ $^ $(LIBPATH) $(INCLUDE) $(LIBS)
 clean:
 	rm -i *.o $(EXEC)
-
