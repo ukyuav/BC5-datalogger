@@ -28,72 +28,11 @@ using namespace vn::xplat;
 
 // Method declarations for future use.
 void asciiOrBinaryAsyncMessageReceived(void* userData, Packet& p, size_t index);
+Range getGain(int vRange);
+int  getvRange(int gain);
 
 char vecFileStr[] = "VECTORNAVDATA00.CSV";
 ofstream vecFile;
-
-Range getGain(int vRange) {
-	Range gain;
-	switch (vRange) {
-	case(1): {
-		gain = BIP1VOLTS;
-		return gain;
-		break;
-	}
-	case(2): {
-		gain = BIP2VOLTS;
-		return gain;
-		break;
-	}
-	case(5): {
-		gain = BIP5VOLTS;
-		return gain;
-		break;
-	}
-	case(10): {
-		gain = BIP10VOLTS;
-		return gain;
-		break;
-	}
-	default: {
-		gain = BIP5VOLTS;
-		return gain;
-		break;
-	}
-	}
-}
-
-int getvRange(int gain) {
-	int vRange;
-	switch (gain) {
-	case(BIP1VOLTS): {
-		vRange = 1;
-		return vRange;
-		break;
-	}
-	case(BIP2VOLTS): {
-		vRange = 2;
-		return vRange;
-		break;
-	}
-	case(BIP5VOLTS): {
-		vRange = 5;
-		return vRange;
-		break;
-	}
-	case(BIP10VOLTS): {
-		vRange = 10;
-		return vRange;
-		break;
-	}
-	default: {
-		vRange = 5;
-		return vRange;
-		break;
-	}
-	}
-}
-
 
 int main(int argc, const char *argv[]) {
 	const char* fileName = "config.txt";
@@ -166,7 +105,6 @@ int main(int argc, const char *argv[]) {
 	}
 	configFile.open(configFileName);
 	configFile << rate << "\n" << numChan << "\n" << vRange << "\n" << duration << endl;
-
 
 	// Acquire device(s)
 	detectError = ulGetDaqDeviceInventory(interfaceType, devDescriptors, &numDevs);
@@ -245,11 +183,11 @@ int main(int argc, const char *argv[]) {
 
 
 	Range gain = getGain(vRange);
+	//Remove SO_EXTTRIGGER option if you do not want the DAQ to wait for the VectorNav
 	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_CONTINUOUS | SO_EXTTRIGGER);
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
 
-	//Configure trigger, only the first two arguments here matter, rest are ignored
-	//ulAInSetTrigger(deviceHandle,TRIG_POS_EDGE, 0, 2.4, .6, 0);
+
 
 	printf("Beginning Sampling for next %i minutes.\n Press enter to quit.\n", duration);
 
@@ -341,5 +279,67 @@ void asciiOrBinaryAsyncMessageReceived(void* userData, Packet& p, size_t index)
 			// Not the type of binary packet we are expecting.
 			return;
 		vecFile.write(p.datastr().c_str(), PACKETSIZE );
+	}
+}
+
+Range getGain(int vRange) {
+	Range gain;
+	switch (vRange) {
+		case(1): {
+			gain = BIP1VOLTS;
+			return gain;
+			break;
+		}
+		case(2): {
+			gain = BIP2VOLTS;
+			return gain;
+			break;
+		}
+		case(5): {
+			gain = BIP5VOLTS;
+			return gain;
+			break;
+		}
+		case(10): {
+			gain = BIP10VOLTS;
+			return gain;
+			break;
+		}
+		default: {
+			gain = BIP5VOLTS;
+			return gain;
+			break;
+		}
+	}
+}
+
+int getvRange(int gain) {
+	int vRange;
+	switch (gain) {
+		case(BIP1VOLTS): {
+			vRange = 1;
+			return vRange;
+			break;
+		}
+		case(BIP2VOLTS): {
+			vRange = 2;
+			return vRange;
+			break;
+		}
+		case(BIP5VOLTS): {
+			vRange = 5;
+			return vRange;
+			break;
+		}
+		case(BIP10VOLTS): {
+			vRange = 10;
+			return vRange;
+			break;
+		}
+		default: {
+			vRange = 5;
+			return vRange;
+			break;
+		}
 	}
 }
