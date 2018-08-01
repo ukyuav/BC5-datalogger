@@ -1,0 +1,6 @@
+mccBuild
+getData
+config.txt
+uavCombined-raspi.cpp
+uavCombined-raspi2.cpp
+uavDAQ-raspi.cpp
