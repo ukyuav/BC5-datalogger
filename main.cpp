@@ -30,6 +30,7 @@ using namespace vn::xplat;
 void asciiOrBinaryAsyncMessageReceived(void* userData, Packet& p, size_t index);
 Range getGain(int vRange);
 int  getvRange(int gain);
+int handleError(UlError detectError, const string info); 
 
 char vecFileStr[] = "VECTORNAVDATA00.CSV";
 ofstream vecFile;
@@ -109,12 +110,7 @@ int main(int argc, const char *argv[]) {
 
 	// Acquire device(s)
 	detectError = ulGetDaqDeviceInventory(interfaceType, devDescriptors, &numDevs);
-
-	if (detectError != 0) {
-		printf("Cannot acquire device inventory\n");
-		char ErrMsg[ERRSTRLEN];
-		ulGetErrMsg(detectError, ErrMsg);
-		printf(ErrMsg);
+	if(handleError(detectError, "Cannot acquire device inventory\n")){
 		return -1;
 	}
 
@@ -200,11 +196,7 @@ int main(int argc, const char *argv[]) {
 	detectError = ulAInScan(deviceHandle, LowChan, HighChan, AI_SINGLE_ENDED, gain, samplesPerChan, &rated, options,  flags, buffer);
 	vs.registerAsyncPacketReceivedHandler(NULL, asciiOrBinaryAsyncMessageReceived);
 
-	if (detectError != 0) {
-		printf("Couldn't start scan\n");
-		char ErrMsg[ERRSTRLEN];
-		ulGetErrMsg(detectError, ErrMsg);
-		printf(ErrMsg);
+	if (handleError(detectError, "Couldn't start scan\n")){
 		return -1;
 	}
 
@@ -212,23 +204,13 @@ int main(int argc, const char *argv[]) {
 	TransferStatus tranStat;
 	bool readLower = true;
 	detectError = ulAInScanStatus(deviceHandle, &status, &tranStat);
-	if(detectError != 0){
-		printf("Couldn't check scan status\n");
-		char  ErrMsg[ERRSTRLEN];
-		ulGetErrMsg(detectError, ErrMsg);
-		printf(ErrMsg);
-		cout << ErrMsg;
+	if(handleError(detectError,"Couldn't check scan status\n")){
 		return -1;
 	}
 
 	while(status == SS_RUNNING && !enter_press()){
 		detectError = ulAInScanStatus(deviceHandle, &status, &tranStat);
-		if(detectError != 0){
-			printf("Couldn't check scan status\n");
-			char  ErrMsg[ERRSTRLEN];
-			ulGetErrMsg(detectError, ErrMsg);
-			cout << ErrMsg;
-			printf(ErrMsg);
+		if(handleError(detectError,"Couldn't check scan status\n")){
 			return -1;
 		}
 		if( (tranStat.currentIndex > (numBufferPoints/2) ) & readLower){
@@ -247,11 +229,7 @@ int main(int argc, const char *argv[]) {
 
 
 	detectError = ulAInScanStop(deviceHandle);
-	if(detectError !=  0){
-		printf("Couldn't stop background process\n");
-		char ErrMsg[ERRSTRLEN];
-		ulGetErrMsg(detectError, ErrMsg);
-		printf(ErrMsg);
+	if(handleError(detectError,"Couldn't stop background process\n")){
 		return -1;
 	}
 	printf("Sampling completed.\n");
@@ -344,4 +322,15 @@ int getvRange(int gain) {
 			break;
 		}
 	}
+}
+
+int handleError(UlError detectError, const string info){
+	if(detectError != 0){
+		fprintf(stderr, info.c_str());
+		char ErrMsg[ERRSTRLEN];
+		ulGetErrMsg(detectError, ErrMsg);
+		fprintf(stderr, ErrMsg);
+		return 1;
+	}
+	return 0;
 }
