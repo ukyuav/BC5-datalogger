@@ -56,6 +56,11 @@ This may work with similar models, but has not been tested with anything but the
     
 - If you build with the default target or run `make extract`, you can decode the binary packets recorded from the VectorNav device. Do this with `./extract VECTORNAVDATAXX.CSV`, which will create a file called VECTORNAVASCIIXX.CSV, which is human-readable.
 
+## Other notes
+- In order to prevent data loss in the event of power failure, it is necessary to edit the `/etc/fstab` file on your machine and add the `sync` mount option to the main partition. This ensures that writes to the files are immediately saved to the disk.
+   
+```/dev/mncblk0p6    /    ext4    defaults,sync,noatime    0    1```
+
 
  
  
