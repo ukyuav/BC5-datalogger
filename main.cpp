@@ -48,7 +48,7 @@ int main(int argc, const char *argv[]) {
 	// Read config file
 	int fileDesc = open(fileName, O_RDONLY);
 	//Error Message if not possible
-	if (fileDesc < 0) {
+ 	if (fileDesc < 0) {
 		fprintf(stderr, "Cannot open file %s\n", fileName);
 		return -1;
 	}
@@ -154,7 +154,7 @@ int main(int argc, const char *argv[]) {
 	vecFileStr[14] = configFileName[11];
 
 	FILE* DAQFile = fopen(DAQfileStr, "wb+");
-	vecFile.open(vecFileStr,std::ofstream::binary);
+	vecFile.open(vecFileStr,std::ofstream::binary | std::ofstream::app);
 
 	AsciiAsync asciiAsync = (AsciiAsync) 0;
 	vs.writeAsyncDataOutputType(asciiAsync); //Turns off ASCII messages
@@ -237,13 +237,9 @@ int main(int argc, const char *argv[]) {
 
 void asciiOrBinaryAsyncMessageReceived(void* userData, Packet& p, size_t index)
 {
-	if (p.type() == Packet::TYPE_ASCII && p.determineAsciiAsyncType() == VNYPR)
-	{
-		vec3f ypr;
-		p.parseVNYPR(&ypr);
-		cout << "ASCII Async YPR: " << ypr << endl;
-		return;
-	}
+// 	The following line and the vecFile.close() command at the bottom of this function are not recommended when the sync mount option is set for the filesystem
+//	vecFile.open(vecFileStr,std::ofstream::binary | std::ofstream::app);
+	
 	if (p.type() == Packet::TYPE_BINARY)
 	{
 		// First make sure we have a binary packet type we expect since there
@@ -258,7 +254,7 @@ void asciiOrBinaryAsyncMessageReceived(void* userData, Packet& p, size_t index)
 			// Not the type of binary packet we are expecting.
 			return;
 		vecFile.write(p.datastr().c_str(), PACKETSIZE );
-		vecFile.flush();
+	// 	vecFile.close();
 	}
 }
 
