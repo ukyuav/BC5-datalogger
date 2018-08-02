@@ -43,7 +43,7 @@ This may work with similar models, but has not been tested with anything but the
          - DAQ Sample Rate (0 - 100000 hz)
          - Number of channels to sample (aggregate sample rate cannot exceed 400 khz)
          - Voltage Range (1, 2, 5, 10)
-         - Duration (in minutes, this is currently ignored)
+         - Duration
  2. Run `./getData` to begin.
  3. Press enter to quit.
  - There are either 3 files for each recording session:

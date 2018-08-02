@@ -135,7 +135,8 @@ int main(int argc, const char *argv[]) {
 	// Let's query the sensor's model number.
 	string mn = vs.readModelNumber();
 	cout << "VectorNav connected. Model Number: " << mn << endl;
-
+	
+	int durSec = duration*60;
 	short LowChan = 0;
 	short HighChan = numChan - 1;
 	double rated = (double)rate;
@@ -207,8 +208,8 @@ int main(int argc, const char *argv[]) {
 	if(handleError(detectError,"Couldn't check scan status\n")){
 		return -1;
 	}
-
-	while(status == SS_RUNNING && !enter_press()){
+	double runningTime = difftime(time(NULL),currentTime);
+	while(status == SS_RUNNING && !enter_press() && (runningTime <  durSec) ){
 		detectError = ulAInScanStatus(deviceHandle, &status, &tranStat);
 		if(handleError(detectError,"Couldn't check scan status\n")){
 			return -1;
@@ -221,6 +222,7 @@ int main(int argc, const char *argv[]) {
 			fwrite(&(buffer[numBufferPoints/2]), sizeof(double), numBufferPoints/2, DAQFile);
 			readLower = true;
 		}
+		runningTime = difftime(time(NULL), currentTime);
 	}
 	fclose(DAQFile);
 	vs.unregisterAsyncPacketReceivedHandler();
