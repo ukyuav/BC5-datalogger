@@ -17,6 +17,12 @@ This may work with similar models, but has not been tested with anything but the
 - [VectorNav Programming Library v1.1](https://www.vectornav.com/support/downloads)
     - v1.1.4 has also been tested
     - Simply download, unzip, and run `make` to build library and example files.
+    ```
+        $ wget https://www.vectornav.com/docs/default-source/downloads/programming-library/vnproglib-1-1-4.zip
+        $ unzip vnproglib-1-1-4.zip
+        $ cd vnproglib-1-1-4/cpp
+        $ make
+    ```
  
 - [MCC Universal Library for Linux (uldaq)](https://github.com/mccdaq/uldaq/)
     - This requires [libusb](https://github.com/libusb/libusb)
