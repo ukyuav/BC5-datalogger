@@ -4,12 +4,15 @@
 #include <iostream>
 #include <fstream>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
+//Libraries for MCC DAQ
 #include "uldaq.h"
 #include "utility.h"
-#include <time.h>
-#include <sys/stat.h>
+// Library for GPIO pins to enable push to start
+#include <wiringPi.h> 
 // Include this header file to get access to VectorNav sensors.
 #include "vn/sensors.h"
 #include "vn/thread.h"
@@ -19,6 +22,12 @@
 #define MAX_SCAN_OPTIONS_LENGTH 256
 #define ERRSTRLEN 256
 #define PACKETSIZE 110
+// Used for WiringPi numbering scheme. See the full list with `$ gpio readall`
+#define GPIO2 8 
+
+//Allows for data recording to be started by a pushbutton connected to GPIO pins
+//Set to zero to disable
+#define PUSHTOSTART 0
 
 using namespace std;
 using namespace vn::math;
@@ -32,10 +41,14 @@ Range getGain(int vRange);
 int  getvRange(int gain);
 int handleError(UlError detectError, const string info); 
 
+
 char vecFileStr[] = "VECTORNAVDATA00.CSV";
 ofstream vecFile;
 
 int main(int argc, const char *argv[]) {
+	wiringPiSetup();
+	pinMode(GPIO2, INPUT);
+
 	const char* fileName = "config.txt";
 
 	DaqDeviceDescriptor devDescriptors[MAX_DEV_COUNT];
@@ -185,7 +198,19 @@ int main(int argc, const char *argv[]) {
 	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_CONTINUOUS | SO_EXTTRIGGER);
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
 
-
+	
+	// Wait to start recording if Push to Start is enabled
+	if(PUSHTOSTART){
+		printf("Push  button to begin.\n");
+		int hold = 1;
+		int btn;
+		while(hold ==1){
+			btn = digitalRead(GPIO2);
+			if (btn == LOW){
+				hold = 0;
+			}
+		}
+	}
 
 	printf("Beginning Sampling for next %i minutes.\n Press enter to quit.\n", duration);
 
