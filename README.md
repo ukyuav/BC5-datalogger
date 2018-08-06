@@ -17,7 +17,7 @@ This may work with similar models, but has not been tested with anything but the
 - [VectorNav Programming Library v1.1](https://www.vectornav.com/support/downloads)
     - v1.1.4 has also been tested
     - Simply download, unzip, and run `make` to build library and example files.
-    ```
+    ```sh
         $ wget https://www.vectornav.com/docs/default-source/downloads/programming-library/vnproglib-1-1-4.zip
         $ unzip vnproglib-1-1-4.zip
         $ cd vnproglib-1-1-4/cpp
@@ -38,9 +38,13 @@ This may work with similar models, but has not been tested with anything but the
     
  ## Building
  
- 1. Edit the `VNPATH` and `MCCPATH` macros at the top of the makefile to match the locations where you installed the VectorNav and MCC software on your machine.
- 2. Run `make`.
- 3. Run `./getData` to begin the program.
+ 1. Clone this repository, then enter the directory that is created.
+    ```sh
+        git clone  https://github.com/irowebbn/BC5-datalogger.git
+    ```
+ 2. Edit the `VNPATH` and `MCCPATH` macros at the top of the makefile to match the locations where you installed the VectorNav and MCC software on your machine.
+ 3. Run `make`.
+ 4. Run `./getData` to begin the program.
  
  ## Usage
  
