@@ -195,10 +195,13 @@ int main(int argc, const char *argv[]) {
 
 	Range gain = getGain(vRange);
 	//Remove SO_EXTTRIGGER option if you do not want the DAQ to wait for the VectorNav
-	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_CONTINUOUS | SO_EXTTRIGGER);
+	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_EXTTRIGGER | SO_RETRIGGER);
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
+	detectError = ulAInSetTrigger(deviceHandle, TRIG_POS_EDGE, 0, 0, 0, numChan);
+	if(handleError(detectError, "Couldn't  set trigger\n")){
+		return -1;
+	}	
 
-	
 	// Wait to start recording if Push to Start is enabled
 	if(PUSHTOSTART){
 		printf("Push  button to begin.\n");
@@ -219,13 +222,23 @@ int main(int argc, const char *argv[]) {
 	configFile << asctime(timeinfo) << endl;
 	configFile.close();
 
-	detectError = ulAInScan(deviceHandle, LowChan, HighChan, AI_SINGLE_ENDED, gain, samplesPerChan, &rated, options,  flags, buffer);
+	detectError = ulAInScan(deviceHandle, LowChan, HighChan, AI_SINGLE_ENDED, gain, 1, &rated, options,  flags, buffer);
 	vs.registerAsyncPacketReceivedHandler(NULL, asciiOrBinaryAsyncMessageReceived);
 
 	if (handleError(detectError, "Couldn't start scan\n")){
 		return -1;
 	}
-
+	
+	TransferStatus  tranStat;
+	double runningTime = difftime(time(NULL), currentTime);
+	while(!enter_press() && (runningTime < durSec)){
+		if(tranStat.currentIndex == 1){
+			fwrite(buffer, sizeof(double), 1, DAQFile);
+		}
+		runningTime = difftime(time(NULL), currentTime);
+	}
+	
+/*
 	ScanStatus status;
 	TransferStatus tranStat;
 	bool readLower = true;
@@ -249,6 +262,7 @@ int main(int argc, const char *argv[]) {
 		}
 		runningTime = difftime(time(NULL), currentTime);
 	}
+*/
 	fclose(DAQFile);
 	vs.unregisterAsyncPacketReceivedHandler();
 	vs.disconnect();
@@ -353,6 +367,7 @@ int handleError(UlError detectError, const string info){
 		char ErrMsg[ERRSTRLEN];
 		ulGetErrMsg(detectError, ErrMsg);
 		fprintf(stderr, ErrMsg);
+		fprintf(stderr, "\n");
 		return 1;
 	}
 	return 0;
