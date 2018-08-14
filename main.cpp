@@ -195,10 +195,11 @@ int main(int argc, const char *argv[]) {
 
 	Range gain = getGain(vRange);
 	//Remove SO_EXTTRIGGER option if you do not want the DAQ to wait for the VectorNav
-	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_EXTTRIGGER | SO_RETRIGGER);
+//	ScanOption options = (ScanOption) (SO_RETRIGGER);
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
-	detectError = ulAInSetTrigger(deviceHandle, TRIG_POS_EDGE, 0, 0, 0, numChan);
-	if(handleError(detectError, "Couldn't  set trigger\n")){
+	detectError = ulAInScan(deviceHandle, LowChan, HighChan, AI_SINGLE_ENDED, gain, 1, &rated, SO_RETRIGGER,  flags, buffer);
+	detectError = ulAInSetTrigger(deviceHandle, TRIG_POS_EDGE, 0, 0, 0, 0);
+	if(handleError(detectError, "Couldn't set trigger\n")){
 		return -1;
 	}	
 
@@ -207,7 +208,7 @@ int main(int argc, const char *argv[]) {
 		printf("Push  button to begin.\n");
 		int hold = 1;
 		int btn;
-		while(hold ==1){
+		while(hold == 1){
 			btn = digitalRead(GPIO2);
 			if (btn == LOW){
 				hold = 0;
@@ -222,7 +223,6 @@ int main(int argc, const char *argv[]) {
 	configFile << asctime(timeinfo) << endl;
 	configFile.close();
 
-	detectError = ulAInScan(deviceHandle, LowChan, HighChan, AI_SINGLE_ENDED, gain, 1, &rated, options,  flags, buffer);
 	vs.registerAsyncPacketReceivedHandler(NULL, asciiOrBinaryAsyncMessageReceived);
 
 	if (handleError(detectError, "Couldn't start scan\n")){
