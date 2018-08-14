@@ -55,6 +55,8 @@ This may work with similar models, but has not been tested with anything but the
  3. Run `make`.
  4. Run `./getData` to begin the program.
  
+ If the device already has the repository present, run `git pull` and `make` to update to update to the latest version.
+ 
  ## Usage
  
  1. Before starting, create a config.txt file in the directory where you will be running the program
