@@ -8,6 +8,7 @@ Records data off of MCC DAQ and VectorNav INS
 - [Usage](https://github.com/irowebbn/BC5-datalogger#usage)
 - [Other notes](https://github.com/irowebbn/BC5-datalogger#other-notes)
 - [To-do](https://github.com/irowebbn/BC5-datalogger#to-do)
+- [Important resources](https://github.com/irowebbn/BC5-datalogger#important-resources)
 
 ## Purpose
 Created for use on the BLUECAT V unmanned platform at the University of Kentucky.
@@ -54,6 +55,8 @@ This may work with similar models, but has not been tested with anything but the
  3. Run `make`.
  4. Run `./getData` to begin the program.
  
+ If the device already has the repository present, run `git pull` and `make` to update to update to the latest version.
+ 
  ## Usage
  
  1. Before starting, create a config.txt file in the directory where you will be running the program
@@ -64,8 +67,9 @@ This may work with similar models, but has not been tested with anything but the
          - Duration
  2.    If you would like to start the recording by push button, change the `PUSHTOSTART` option in main.cpp to `1` and wire the GPIO pins as shown below. 
      - <img src="https://github.com/irowebbn/BC5-datalogger/blob/master/GPIO-button.png" width = "400">
- 3. Run `./getData` to begin.
- 4. Press enter to quit.
+ 3. To ensure the two devices are synchronized, connect the SYNC_OUT pin of the VectorNav to the TRIG_IN terminal (pin 37) of the DAQ
+ 4. Run `./getData` to begin.
+ 5. Press enter to quit.
  
  - There are either 3 files for each recording session:
     - DATAXX.DAQ, where XX is some number between 00 and 99
@@ -85,7 +89,17 @@ This may work with similar models, but has not been tested with anything but the
 - You may want to have this program run when the Pi boots, you can achieve this by [editing the rc.local file](https://www.raspberrypi.org/documentation/linux/usage/rc-local.md)
 
 ## To-do
- 1. Change push button to trigger interrupt
- 2. Add status LED
- 3. Add data export function
+ 1. Rewrite for each sample of DAQ to be triggered by VectorNav
+ 2. Change push button to trigger interrupt, add push-to-stop
+    - [Wiring Pi Interrupts and Threads](http://wiringpi.com/reference/priority-interrupts-and-threads/) 
+    - [Interrupt-Driven Event-Counter on the Raspberry Pi](http://www.science.smith.edu/dftwiki/index.php/Tutorial:_Interrupt-Driven_Event-Counter_on_the_Raspberry_Pi)
+ 3. Add status LED, preview screen
+ 4. Add data export function
+ 5. Create seperate test program for calculating running averages and range to replace DAQimi
+ 
+ ## Important Resources
+ - [VectorNav VN-300 User Manual](https://www.vectornav.com/docs/default-source/documentation/vn-300-documentation/vn-300-user-manual-(um005).pdf)
+ - [MCC USB-1608FS-Plus User Manual](https://www.mccdaq.com/PDFs/manuals/USB-1608FS-Plus.pdf)
+ - [VectorNav Programming Library (with documentation)](https://www.vectornav.com/docs/default-source/downloads/programming-library/vnproglib-1-1-4.zip?sfvrsn=fe678835_20)
+ - [MCC Universal Library for Linux C/C++ Documentation](https://www.mccdaq.com/PDFs/Manuals/UL-Linux/c/index.html)
  
