@@ -179,7 +179,7 @@ int main(int argc, const char *argv[]) {
 		SYNCOUTMODE_ITEMSTART,
 		SYNCOUTPOLARITY_POSITIVE,
 		0,
-		100000000);
+		2500000);
 	vs.writeSynchronizationControl(scr);
 	BinaryOutputRegister bor(
 		ASYNCMODE_PORT1,
@@ -195,10 +195,9 @@ int main(int argc, const char *argv[]) {
 
 	Range gain = getGain(vRange);
 	//Remove SO_EXTTRIGGER option if you do not want the DAQ to wait for the VectorNav
-	ScanOption options = (ScanOption) (SO_EXTTRIGGER | SO_EXTCLOCK);
+	ScanOption options = (ScanOption) (SO_CONTINUOUS | SO_EXTCLOCK);
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
-	detectError = ulAInScan(deviceHandle, LowChan, HighChan, AI_SINGLE_ENDED, gain, 1, &rated, options ,  flags, buffer);
-	detectError = ulAInSetTrigger(deviceHandle, TRIG_POS_EDGE, 0, 0, 0, 0);
+	detectError = ulAInScan(deviceHandle, LowChan, HighChan, AI_SINGLE_ENDED, gain, samplesPerChan, &rated, options ,  flags, buffer);
 	if(handleError(detectError, "Couldn't set trigger\n")){
 		return -1;
 	}	
@@ -228,17 +227,6 @@ int main(int argc, const char *argv[]) {
 	if (handleError(detectError, "Couldn't start scan\n")){
 		return -1;
 	}
-/*	
-	TransferStatus  tranStat;
-	double runningTime = difftime(time(NULL), currentTime);
-	while(!enter_press() && (runningTime < durSec)){
-		if(tranStat.currentIndex == 1){
-			printf("%f", buffer[1]);
-			fwrite(buffer, sizeof(double), 1, DAQFile);
-		}
-		runningTime = difftime(time(NULL), currentTime);
-	}
-*/
 
 	ScanStatus status;
 	TransferStatus tranStat;
