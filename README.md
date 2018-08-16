@@ -94,6 +94,7 @@ This may work with similar models, but has not been tested with anything but the
     - [Wiring Pi Interrupts and Threads](http://wiringpi.com/reference/priority-interrupts-and-threads/) 
     - [Interrupt-Driven Event-Counter on the Raspberry Pi](http://www.science.smith.edu/dftwiki/index.php/Tutorial:_Interrupt-Driven_Event-Counter_on_the_Raspberry_Pi)
  3. Add status LED, preview screen
+    - [20x4 LCD Screen](https://smile.amazon.com/RioRand-Module-Arduino-White-Blue/dp/B00GZ6GK7A/ref=sr_1_3?ie=UTF8&qid=1534449709&sr=8-3&keywords=20x4+lcd+display)
  4. Add data export function
  5. Create seperate test program for calculating running averages and range to replace DAQimi
  
