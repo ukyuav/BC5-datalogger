@@ -64,7 +64,7 @@ This may work with similar models, but has not been tested with anything but the
          - DAQ Sample Rate (0 - 100000 hz)
          - Number of channels to sample (aggregate sample rate cannot exceed 400 khz)
          - Voltage Range (1, 2, 5, 10)
-         - Duration
+         - Duration (in minutes)
  2.    If you would like to start the recording by push button, change the `PUSHTOSTART` option in main.cpp to `1` and wire the GPIO pins as shown below. 
      - <img src="https://github.com/irowebbn/BC5-datalogger/blob/master/GPIO-button.png" width = "400">
  3. To ensure the two devices are synchronized, connect the SYNC_OUT pin of the VectorNav to the TRIG_IN terminal (pin 37) of the DAQ
