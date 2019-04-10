@@ -1,3 +1,5 @@
+// This Trial of the VectorNav/DAQ Acquisition software timestamps and writes individual DAQ samples using the VectorNav synchronization register as an external clock.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -23,7 +25,7 @@
 #define ERRSTRLEN 256
 #define PACKETSIZE 110
 // Used for WiringPi numbering scheme. See the full list with `$ gpio readall`
-#define GPIO2 8 
+#define GPIO8 8 
 
 //Allows for data recording to be started by a pushbutton connected to GPIO pins
 //Set to zero to disable
@@ -37,7 +39,7 @@ using namespace vn::xplat;
 
 // Method declarations for future use.
 void asciiOrBinaryAsyncMessageReceived(void* userData, Packet& p, size_t index);
-Range getGain(int vRange);
+Range  getGain(int vRange);
 int  getvRange(int gain);
 int handleError(UlError detectError, const string info); 
 
@@ -47,7 +49,7 @@ ofstream vecFile;
 
 int main(int argc, const char *argv[]) {
 	wiringPiSetup();
-	pinMode(GPIO2, INPUT);
+	pinMode(GPIO8, INPUT);
 
 	const char* fileName = "config.txt";
 
@@ -155,7 +157,7 @@ int main(int argc, const char *argv[]) {
 	double rated = (double)rate;
 	long samplesPerChan = rate;// Acquisition will be for 1 seconds' worth of data, run continuously
 	long numBufferPoints = numChan * rate;
-	double* buffer = (double*) malloc(numBufferPoints * sizeof(double));
+	double * buffer = (double*) malloc(numBufferPoints * sizeof(double));
 	if(buffer == 0){
 		printf("Out of memory\n");
 		return -1;
@@ -173,17 +175,18 @@ int main(int argc, const char *argv[]) {
 	AsciiAsync asciiAsync = (AsciiAsync) 0;
 	vs.writeAsyncDataOutputType(asciiAsync); //Turns off ASCII messages
 	SynchronizationControlRegister scr(
-		SYNCINMODE_COUNT,
-		SYNCINEDGE_RISING,
-		0,
-		SYNCOUTMODE_ITEMSTART,
-		SYNCOUTPOLARITY_POSITIVE,
-		0,
-		100000000);
-	vs.writeSynchronizationControl(scr);
+			SYNCINMODE_COUNT,
+			SYNCINEDGE_RISING,
+			0,
+			SYNCOUTMODE_ITEMSTART,
+			SYNCOUTPOLARITY_POSITIVE,
+			0,
+			2500000);
+
+			vs.writeSynchronizationControl(scr);
 	BinaryOutputRegister bor(
 		ASYNCMODE_PORT1,
-		2,
+		2, 
 		COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS, // Note use of binary OR to configure flags.
 		TIMEGROUP_NONE,
 		IMUGROUP_TEMP | IMUGROUP_PRES,
@@ -195,17 +198,21 @@ int main(int argc, const char *argv[]) {
 
 	Range gain = getGain(vRange);
 	//Remove SO_EXTTRIGGER option if you do not want the DAQ to wait for the VectorNav
-	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_CONTINUOUS | SO_EXTTRIGGER);
+	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_CONTINUOUS |  SO_EXTTRIGGER );
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
+	detectError = ulAInSetTrigger(deviceHandle, TRIG_POS_EDGE, 0, 0,0, 0);
+	if (handleError(detectError, "Couldn't start scan\n")){
+		return -1;
+	}
 
-	
+
 	// Wait to start recording if Push to Start is enabled
 	if(PUSHTOSTART){
 		printf("Push  button to begin.\n");
 		int hold = 1;
 		int btn;
 		while(hold ==1){
-			btn = digitalRead(GPIO2);
+			btn = digitalRead(GPIO8);
 			if (btn == LOW){
 				hold = 0;
 			}
@@ -218,7 +225,7 @@ int main(int argc, const char *argv[]) {
 	struct tm * timeinfo = localtime (&currentTime);
 	configFile << asctime(timeinfo) << endl;
 	configFile.close();
-
+	// initial scan for DAQ data
 	detectError = ulAInScan(deviceHandle, LowChan, HighChan, AI_SINGLE_ENDED, gain, samplesPerChan, &rated, options,  flags, buffer);
 	vs.registerAsyncPacketReceivedHandler(NULL, asciiOrBinaryAsyncMessageReceived);
 
@@ -233,12 +240,44 @@ int main(int argc, const char *argv[]) {
 	if(handleError(detectError,"Couldn't check scan status\n")){
 		return -1;
 	}
-	double runningTime = difftime(time(NULL),currentTime);
-	while(status == SS_RUNNING && !enter_press() && (runningTime <  durSec) ){
+	
+/*	
+	// indices for traversing through buffer
+	int index = 0;
+	int oldIndex = -1;
+	double tempData = 0;
+
+	while(status == SS_RUNNING && !enter_press() ){
 		detectError = ulAInScanStatus(deviceHandle, &status, &tranStat);
 		if(handleError(detectError,"Couldn't check scan status\n")){
 			return -1;
 		}
+			if (tempData != buffer[0]){
+			for (int i = 0; i< numChan; i++){
+				fwrite(&buffer[i], sizeof(double), 1, DAQFile);
+			}
+			tempData = buffer[0];
+			//printf("%d\n", tempData);
+		}
+	}
+*/
+	int btnPress;	
+	double runningTime = difftime(time(NULL),currentTime);
+	while(status == SS_RUNNING && !enter_press() && (runningTime <  durSec) && btnPress != LOW ){
+//	while(status == SS_RUNNING && !enter_press()){
+		btnPress = digitalRead(GPIO8);
+		detectError = ulAInScanStatus(deviceHandle, &status, &tranStat);
+		if(handleError(detectError,"Couldn't check scan status\n")){
+			return -1;
+		}
+//		index = tranStat.currentIndex;
+//		if (index != oldIndex){
+//			for (int i = 0; i< numChan; i++){
+//				fwrite(&buffer[index+i], sizeof(double), 1, DAQFile);
+//			}
+//		}
+//		oldIndex=index;
+
 		if( (tranStat.currentIndex > (numBufferPoints/2) ) & readLower){
 			fwrite(buffer, sizeof(double), numBufferPoints/2 , DAQFile);
 			readLower = false;
@@ -249,11 +288,11 @@ int main(int argc, const char *argv[]) {
 		}
 		runningTime = difftime(time(NULL), currentTime);
 	}
-	fclose(DAQFile);
 	vs.unregisterAsyncPacketReceivedHandler();
 	vs.disconnect();
 	vecFile.close();
-
+	fclose(DAQFile);
+	
 
 	detectError = ulAInScanStop(deviceHandle);
 	if(handleError(detectError,"Couldn't stop background process\n")){

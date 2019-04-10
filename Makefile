@@ -1,9 +1,9 @@
-VNPATH = /home/pi/DATA/vnproglib-1.1.4.0/cpp/
-MCCPATH = /home/pi/DATA/libuldaq-1.0.0/
+VNPATH = /home/pi/vnproglib-1.1.4.0/cpp/
+MCCPATH = /home/pi/libuldaq-1.0.0/
 LIBPATH = -L$(VNPATH)/build/bin -L/usr/local/lib
 LIBS =  -luldaq -lvncxx -lpthread -lwiringPi
 INCLUDE = -I$(VNPATH)/include -I$(MCCPATH)/examples
-FLAGS = -Wall -g
+FLAGS = -Wall -g  
 
 SOURCE = main
 EXEC = getData
@@ -15,5 +15,7 @@ $(EXEC) : $(SOURCE).cpp
 
 extract: extract.cpp
 	g++ $(FLAGS) -o $@ $^ $(LIBPATH) $(INCLUDE) $(LIBS)
+DAQ2CSV: DAQ2CSV.cpp
+	g++ $(FLAGS) -o $@ $^ $(LIBPATH) -lvncxx -I$(VNPATH)/include
 clean:
 	rm -i *.o $(EXEC)
