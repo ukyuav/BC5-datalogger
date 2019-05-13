@@ -1,6 +1,6 @@
 ===============================================================================
 		   VECTORNAV/DAQ Acquistion Software Manual
-AUTHORS: Isaac Rowe, Matthew Miller (mtmi233@uky.edu)
+AUTHORS: Isaac Rowe (isaac.rowe@uky.edu) , Matthew Miller (mtmi233@uky.edu)
 SUMMARY: This software suite allows users to record flight data from the 
 	VectorNav VN-300 and MCC USB-1608FS-Plus simultaneously.  The software 
 	allows users to configure sample rates for both devices and voltage 
