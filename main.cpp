@@ -25,7 +25,7 @@
 #define ERRSTRLEN 256
 #define PACKETSIZE 110
 // Used for WiringPi numbering scheme. See the full list with `$ gpio readall`
-#define GPIO8 8 
+#define STOP_BUTTON 5
 
 //Allows for data recording to be started by a pushbutton connected to GPIO pins
 //Set to zero to disable
@@ -49,7 +49,7 @@ ofstream vecFile;
 
 int main(int argc, const char *argv[]) {
 	wiringPiSetup();
-	pinMode(GPIO8, INPUT);
+	pinMode(STOP_BUTTON, INPUT);
 
 	const char* fileName = "config.txt";
 
@@ -142,7 +142,7 @@ int main(int argc, const char *argv[]) {
 	// get a handle to the DAQ device associated with the first descriptor
 	deviceHandle = ulCreateDaqDevice(DeviceDescriptor);
 	detectError = ulConnectDaqDevice(deviceHandle);
-	const string SensorPort = "/dev/ttyUSB0";
+	const string SensorPort = "/dev/ttyUSB1";
 	const uint32_t SensorBaudrate = 230400;
 	// Now let's create a VnSensor object and use it to connect to our sensor.
 	VnSensor vs;
@@ -212,7 +212,7 @@ int main(int argc, const char *argv[]) {
 		int hold = 1;
 		int btn;
 		while(hold ==1){
-			btn = digitalRead(GPIO8);
+			btn = digitalRead(STOP_BUTTON);
 			if (btn == LOW){
 				hold = 0;
 			}
@@ -261,11 +261,11 @@ int main(int argc, const char *argv[]) {
 		}
 	}
 */
-	int btnPress;	
+	int btnPress = digitalRead(STOP_BUTTON);	
 	double runningTime = difftime(time(NULL),currentTime);
-	while(status == SS_RUNNING && !enter_press() && (runningTime <  durSec) && btnPress != LOW ){
+	while(status == SS_RUNNING && !enter_press() && (runningTime <  durSec) && btnPress != HIGH ){
 //	while(status == SS_RUNNING && !enter_press()){
-		btnPress = digitalRead(GPIO8);
+		btnPress = digitalRead(STOP_BUTTON);
 		detectError = ulAInScanStatus(deviceHandle, &status, &tranStat);
 		if(handleError(detectError,"Couldn't check scan status\n")){
 			return -1;
