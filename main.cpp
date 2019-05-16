@@ -266,7 +266,8 @@ int main(int argc, const char *argv[]) {
 */
 	int btnPress = digitalRead(STOP_BUTTON);	
 	double runningTime = difftime(time(NULL),currentTime);
-	while(status == SS_RUNNING && !enter_press() && (runningTime <  durSec) && btnPress != HIGH ){
+	// Enter press is commented by default because it prevents from sampling at boot.
+	while(status == SS_RUNNING /*&& !enter_press()*/ && (runningTime <  durSec) && btnPress != HIGH ){
 //	while(status == SS_RUNNING && !enter_press()){
 		btnPress = digitalRead(STOP_BUTTON);
 		detectError = ulAInScanStatus(deviceHandle, &status, &tranStat);
