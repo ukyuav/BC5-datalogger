@@ -45,6 +45,11 @@ This may work with similar models, but has not been tested with anything but the
         $ sudo make install
     ```
     
+ In order to support the symbolic link for the device, create a file in the `/etc/udev/rules.d/` directory with the following rule:
+ ```
+ SUBSYSTEM="tty",ATTRS{idProduct}=="6001",SYMLINK+="VN"
+ ```
+    
  ## Building
  
  1. Clone this repository, then enter the directory that is created.
