@@ -7,7 +7,6 @@ Records data off of MCC DAQ and VectorNav INS
 - [Building](https://github.com/irowebbn/BC5-datalogger#building)
 - [Usage](https://github.com/irowebbn/BC5-datalogger#usage)
 - [Other notes](https://github.com/irowebbn/BC5-datalogger#other-notes)
-- [To-do](https://github.com/irowebbn/BC5-datalogger#to-do)
 - [Important resources](https://github.com/irowebbn/BC5-datalogger#important-resources)
 
 ## Purpose
@@ -93,15 +92,6 @@ This may work with similar models, but has not been tested with anything but the
 
 - You may want to have this program run when the Pi boots, you can achieve this by [editing the rc.local file](https://www.raspberrypi.org/documentation/linux/usage/rc-local.md)
 
-## To-do
- 1. Rewrite for each sample of DAQ to be triggered by VectorNav (see [Paced branch](https://github.com/ukyuav/BC5-datalogger/tree/paced) of this repository.)
- 2. Change push button to trigger interrupt, add push-to-stop
-    - [Wiring Pi Interrupts and Threads](http://wiringpi.com/reference/priority-interrupts-and-threads/) 
-    - [Interrupt-Driven Event-Counter on the Raspberry Pi](http://www.science.smith.edu/dftwiki/index.php/Tutorial:_Interrupt-Driven_Event-Counter_on_the_Raspberry_Pi)
- 3. Add status LED, preview screen
-    - [20x4 LCD Screen](https://smile.amazon.com/RioRand-Module-Arduino-White-Blue/dp/B00GZ6GK7A/ref=sr_1_3?ie=UTF8&qid=1534449709&sr=8-3&keywords=20x4+lcd+display)
- 4. Add data export function
- 5. Create seperate test program for calculating running averages and range to replace DAQimi
  
  ## Important Resources
  - [VectorNav VN-300 User Manual](https://www.vectornav.com/docs/default-source/documentation/vn-300-documentation/vn-300-user-manual-(um005).pdf)
