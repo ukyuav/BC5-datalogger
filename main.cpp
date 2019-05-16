@@ -142,7 +142,10 @@ int main(int argc, const char *argv[]) {
 	// get a handle to the DAQ device associated with the first descriptor
 	deviceHandle = ulCreateDaqDevice(DeviceDescriptor);
 	detectError = ulConnectDaqDevice(deviceHandle);
-	const string SensorPort = "/dev/ttyUSB1";
+	
+	// the symlink at /dev/VN should be created by a udev rule on this system
+	// Please ensure it exists or replace this line with /dev/ttyUSB* where * corresponds with the correct port
+	const string SensorPort = "/dev/VN";
 	const uint32_t SensorBaudrate = 230400;
 	// Now let's create a VnSensor object and use it to connect to our sensor.
 	VnSensor vs;
