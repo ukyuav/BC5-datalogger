@@ -1,13 +1,96 @@
 # BC5-datalogger
 Records data off of MCC DAQ and VectorNav INS
 
+#### AUTHORS: 
+Isaac Rowe (isaac.rowe@uky.edu) , Matthew Miller (mtmi233@uky.edu)
+
+#### SUMMARY: 
+This software suite allows users to record flight data from the 
+VectorNav VN-300 and MCC USB-1608FS-Plus simultaneously.  The software 
+allows users to configure sample rates for both devices and voltage 
+input ranges for DAQ analog input channels.  The data from both devices
+is synchronized to the same time scale and can be output to .CSV files
+for convenient post-processing.
+
+Start with the quick guide below or read futher for full documentation.
+    
+### Quick Start	
+### Recording
+Simply connect the VectorNav and DAQ to any of the four USB ports on the
+Raspberry Pi. The program will automatically begin sampling upon startup.
+You can check the DAQ status light to verify the program is running. The
+light should be blinking. To end sampling push the button wired to the 
+Pi's GPIO pins. The DAQ status light should turn solid. To run the 
+program again simply unplug and restart the Pi.
+
+WARNING: Data has the possibility of being corrupted if the program is 
+not closed correctly (pressing push button). Do not restart Pi until you
+have ended sampling. We are looking into resolving this issue and will
+remove this note in the documentation if necessary.
+
+NOTE:
+The current setup assumes to have the software pre-installed on a 
+Raspberry Pi and have the Pi automatically begin sampling upon
+startup. Please read the section below labelled 'Prerequistes' if you are setting up for the first time.
+
+#### Data Retrieval
+Data retrieval is best done directly from the Linux terminal. These
+instructions assume no knowledge of the command line interface, and exact 
+commands to type in are given.
+
+The getData program in the program directory creates three files upon 
+execution: VECTORNAVDATAXX.CSV, DATAXX.DAQ, and CONFIGDATAXX.txt. 
+XX will be a number from 0-99. Files having the same XX value were made
+during the same sampling session. 
+
+To retrieve data from the Pi do the following
+
+1. 	Plug monitor and keyboard into the Pi. Navigate to the current program
+	directory.
+		
+    type: `cd ./dataLogger`
+
+2.	Extract VectorNav data using the extract program
+
+    type: `./extract VECTORNAVDATAXX.CSV`
+
+    Replace XX with the corresponding value. If you are recording data and 
+    immediately removing the files upon extraction, this could always be 00.
+
+    This could take some time depending on how long you sampled for. If the 
+    program looks like it is frozen, wait 10 minutes or so. 
+
+3.	Create DAQ CSV file
+
+    type: `./DAQ2CSV [DATAXX.DAQ] [VECTORNAVDATAXX.CSV] [CONFIGFILE.txt]`
+	
+	Once again, replace the XX with the number from the sampling you are
+	using. The configuration file you include as the third argument should 
+	have corresponding XX values as well. This tells the program the sample
+	rate and number of channels used in the sampling. 
+
+	This outputs a DAQ file with an identical name as the input DAQ file,
+	with the .CSV extension. The new DAQ file will have a timestamp column 
+	followed by the value recorded for each channel for the corresponding
+	sample--for example, a single channel recording will have a timestamp
+	column followed by 1 column of data, and an 8 channel recording will have
+	a timestamp followed by 8 columns of data.
+
+#### Notes: 
+Ideally this should be a two step process-- take data and then extract
+and convert data into the correct form. We are working on unifying the 
+process and will update the manual as necessary when this occurs.
+
+If you have issues with any of the methods described in this guide 
+contact one of the authors. If more manuals are necessary we will create
+them.
+
 ### Table of contents
 - [Purpose](https://github.com/irowebbn/BC5-datalogger#purpose)
 - [Prerequisites](https://github.com/irowebbn/BC5-datalogger#prerequisites)
 - [Building](https://github.com/irowebbn/BC5-datalogger#building)
 - [Usage](https://github.com/irowebbn/BC5-datalogger#usage)
 - [Other notes](https://github.com/irowebbn/BC5-datalogger#other-notes)
-- [To-do](https://github.com/irowebbn/BC5-datalogger#to-do)
 - [Important resources](https://github.com/irowebbn/BC5-datalogger#important-resources)
 
 ## Purpose
@@ -65,11 +148,14 @@ This may work with similar models, but has not been tested with anything but the
          - Number of channels to sample (aggregate sample rate cannot exceed 400 khz)
          - Voltage Range (1, 2, 5, 10)
          - Duration
- 2.    If you would like to start the recording by push button, change the `PUSHTOSTART` option in main.cpp to `1` and wire the GPIO pins as shown below. 
-     - <img src="https://github.com/irowebbn/BC5-datalogger/blob/master/GPIO-button.png" width = "400">
- 3. To ensure the two devices are synchronized, connect the SYNC_OUT pin of the VectorNav to the TRIG_IN terminal (pin 37) of the DAQ
- 4. Run `./getData` to begin.
- 5. Press enter to quit.
+ 2. Wire one side of the pushbutton to ground and the other to GPIO pins 24 (WiringPi Pin 5) and 25 (WiringPi Pin 6).
+ 3. Add the following lines to `/etc/rc.local`
+    ```
+    cd /absolute/path/to/executable
+    ./getData &
+    ```
+ 4. Run `./getData`  or reboot to begin.
+ 5. Press the pushbutton.
  
  - There are either 3 files for each recording session:
     - DATAXX.DAQ, where XX is some number between 00 and 99
@@ -88,15 +174,6 @@ This may work with similar models, but has not been tested with anything but the
 
 - You may want to have this program run when the Pi boots, you can achieve this by [editing the rc.local file](https://www.raspberrypi.org/documentation/linux/usage/rc-local.md)
 
-## To-do
- 1. Rewrite for each sample of DAQ to be triggered by VectorNav (see [Paced branch](https://github.com/ukyuav/BC5-datalogger/tree/paced) of this repository.)
- 2. Change push button to trigger interrupt, add push-to-stop
-    - [Wiring Pi Interrupts and Threads](http://wiringpi.com/reference/priority-interrupts-and-threads/) 
-    - [Interrupt-Driven Event-Counter on the Raspberry Pi](http://www.science.smith.edu/dftwiki/index.php/Tutorial:_Interrupt-Driven_Event-Counter_on_the_Raspberry_Pi)
- 3. Add status LED, preview screen
-    - [20x4 LCD Screen](https://smile.amazon.com/RioRand-Module-Arduino-White-Blue/dp/B00GZ6GK7A/ref=sr_1_3?ie=UTF8&qid=1534449709&sr=8-3&keywords=20x4+lcd+display)
- 4. Add data export function
- 5. Create seperate test program for calculating running averages and range to replace DAQimi
  
  ## Important Resources
  - [VectorNav VN-300 User Manual](https://www.vectornav.com/docs/default-source/documentation/vn-300-documentation/vn-300-user-manual-(um005).pdf)
