@@ -48,11 +48,11 @@ To retrieve data from the Pi do the following
 1. 	Plug monitor and keyboard into the Pi. Navigate to the current program
 	directory.
 		
-    type: `cd ./dataLogger`
+    type: `cd ./BC5-datalogger-final`
 
 2.	Extract VectorNav data using the extract program
 
-    type: `./extract VECTORNAVDATAXX.CSV`
+    type: `sudo ./extract VECTORNAVDATAXX.CSV`
 
     Replace XX with the corresponding value. If you are recording data and 
     immediately removing the files upon extraction, this could always be 00.
@@ -62,7 +62,7 @@ To retrieve data from the Pi do the following
 
 3.	Create DAQ CSV file
 
-    type: `./DAQ2CSV [DATAXX.DAQ] [VECTORNAVDATAXX.CSV] [CONFIGFILE.txt]`
+    type: `sudo ./DAQ2CSV [DATAXX.DAQ] [VECTORNAVDATAXX.CSV] [CONFIGFILE.txt]`
 	
 	Once again, replace the XX with the number from the sampling you are
 	using. The configuration file you include as the third argument should 
@@ -76,10 +76,15 @@ To retrieve data from the Pi do the following
 	column followed by 1 column of data, and an 8 channel recording will have
 	a timestamp followed by 8 columns of data.
 
+4. 	Retrieve the created files
+     While the terminal is the preferred method for creating our output files, you can retrieve the files any way you please. You can boot the pi up with a monitor, keyboard, and mouse and copy the files to a flash drive with the graphical user interface. It is also possible to copy files via ssh over the network on another machine. Contact one of the creators for detailed instructions on how to do this.
+
 #### Notes: 
 Ideally this should be a two step process-- take data and then extract
 and convert data into the correct form. We are working on unifying the 
 process and will update the manual as necessary when this occurs.
+
+Note that when the program is ran from startup, the created files will be read only to users. The terminal commands above have been typed assuming sudo priveleges are needed.
 
 If you have issues with any of the methods described in this guide 
 contact one of the authors. If more manuals are necessary we will create
