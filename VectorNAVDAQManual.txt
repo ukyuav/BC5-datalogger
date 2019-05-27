@@ -1,0 +1,94 @@
+===============================================================================
+		   VECTORNAV/DAQ Acquistion Software Manual
+AUTHORS: Isaac Rowe (isaac.rowe@uky.edu) , Matthew Miller (mtmi233@uky.edu)
+SUMMARY: This software suite allows users to record flight data from the 
+	VectorNav VN-300 and MCC USB-1608FS-Plus simultaneously.  The software 
+	allows users to configure sample rates for both devices and voltage 
+	input ranges for DAQ analog input channels.  The data from both devices
+	is synchronized to the same time scale and can be output to .CSV files
+	for convenient post-processing.
+UPDATED: March 18, 2019
+		
+===============================================================================
+
+DATA RECORDING:	
+	Simply connect the VectorNav and DAQ to any of the four USB ports on the
+	Raspberry Pi. The program will automatically begin sampling upon startup.
+	You can check the DAQ status light to verify the program is running. The
+	light should be blinking. To end sampling push the button wired to the 
+	Pi's GPIO pins. The DAQ status light should turn solid. To run the 
+	program again simply unplug and restart the Pi.
+		
+	*RESOLVED
+	WARNING: DATA HAS THE POSSIBILITY OF BEING CORRUPTED IF THE PROGRAM IS 
+	NOT CLOSED CORRECTLY (PRESSING PUSH BUTTON). DO NOT RESTART PI UNTIL YOU
+	HAVE ENDED SAMPLING. WE ARE LOOKING INTO RESOLVING THIS ISSUE AND WILL
+	REMOVE THIS NOTE IN THE DOCUMENTATION IF NECESSARY.
+	*RESOLVED
+
+	NOTE:
+	The current setup assumes to have the software pre-installed on a 
+	Raspberry Pi and have the Pi automatically begin sampling upon
+ 	startup. If you are attempting to install the software on a different 
+	machine or manually run the programs, contact authors.
+
+DATA RETRIEVAL:
+	Data retrieval is best done directly from the Linux terminal. These
+	instructions assume no knowledge of the command line interface, and exact 
+	commands to type in are given.
+
+	The getData program in the program directory creates three files upon 
+	execution: VECTORNAVDATAXX.CSV, DATAXX.DAQ, and CONFIGDATAXX.txt. 
+	XX will be a number from 0-99. Files having the same XX value were made
+	during the same sampling session. 
+
+	To retrieve data from the Pi do the following
+
+1. 	Plug monitor and keyboard into the Pi. Navigate to the current program
+	directory.
+		
+		type: cd ./BC5-datalogger-final
+
+2.	Extract VectorNav data using the extract program
+
+		type: sudo ./extract VECTORNAVDATAXX.CSV
+
+		Replace XX with the corresponding value. If you are recording data and 
+		immediately removing the files upon extraction, this could always be 00.
+
+	This could take some time depending on how long you sampled for. If the 
+	program looks like it is frozen, wait 10 minutes or so. 
+
+3.	Create DAQ CSV file
+
+		type: sudo ./DAQ2CSV [DATAXX.DAQ] [VECTORNAVDATAXX.CSV] [CONFIGFILE.txt]
+	
+	Once again, replace the XX with the number from the sampling you are
+	using. The configuration file you include as the third argument should 
+	have corresponding XX values as well. This tells the program the sample
+	rate and number of channels used in the sampling. 
+
+	This outputs a DAQ file with an identical name as the input DAQ file,
+	with the .CSV extension. The new DAQ file will have a timestamp column 
+	followed by the value recorded for each channel for the corresponding
+	sample--for example, a single channel recording will have a timestamp
+	column followed by 1 column of data, and an 8 channel recording will have
+	a timestamp followed by 8 columns of data.
+
+RUNNING ON STARTUP:
+	The Data Retrieval program is designed to be ran on startup or manually from 
+	this folder. By default, we have configured the Pi to begin sampling on 
+	startup and end sampling with a pushbutton. For more detailed instructions
+	on configuring the program to run on startup, view the UAS Data Logging Manual.
+
+	
+NOTES: 
+	Ideally this should be a two step process-- take data and then extract
+	and convert data into the correct form. We are working on unifying the 
+	process and will update the manual as necessary when this occurs.
+
+	If you have issues with any of the methods described in this guide 
+	contact one of the authors. If more manuals are necessary we will create
+	them.
+
+

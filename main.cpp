@@ -201,7 +201,7 @@ int main(int argc, const char *argv[]) {
 
 	Range gain = getGain(vRange);
 	//Remove SO_EXTTRIGGER option if you do not want the DAQ to wait for the VectorNav
-	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_CONTINUOUS |  SO_EXTTRIGGER );
+	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_CONTINUOUS  );
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
 	detectError = ulAInSetTrigger(deviceHandle, TRIG_POS_EDGE, 0, 0,0, 0);
 	if (handleError(detectError, "Couldn't start scan\n")){
