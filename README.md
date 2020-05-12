@@ -83,7 +83,7 @@ This may work with similar models, but has not been tested with anything but the
     - VECTORNAVDATAXX.CSV, where XX corresponds with a DATAXX.daq file
     This contains the raw binary data from the VectorNav. It contains a series of 110 byte packets that can be read with the extract program, or the VectorNav Sensor Explorer
 
-- If you build with the default target or run `make extract`, you can decode the binary packets recorded from the VectorNav device. Do this with `./extract VECTORNAVDATAXX.CSV`, which will create a file called VECTORNAVASCIIXX.CSV, which is human-readable.
+- If you build with the default target or run `make extract`, you can decode the binary packets recorded from the VectorNav device. Do this with `./extract VECTORNAVDATAXX.CSV`, which will create a file called VECTORNAVASCIIXX.CSV, which is human-readable. To add timestamps to the DAQ file, run `DAQ2CSV`. The command `./DAQ2CSV [DAQFILE].DAQ [VECTORNAVFILE].CSV [CONFIGFILE].txt` will convert a DAQ file a time stamped CSV file. It reads the config file to determine the sample rate and number of DAQ channels being sampled, reads the first timestamp from the VectorNav, then timestamps each DAQ sample using a calculated period. The corresponding timestamps are calculated using `[initTime]+[period]*[iterator]`, e.g., the 5th sample of a 200 Hz run will have timestamp of `[initTime] + .005 * 5` 
 
 ## Other notes
 - In order to prevent data loss in the event of power failure, it is necessary to edit the `/etc/fstab` file on your machine and add the `sync` mount option to the main partition. This ensures that writes to the files are immediately saved to the disk.
