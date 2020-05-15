@@ -1,0 +1,10 @@
+sample_duration: 0.15
+vectornav:
+  baud: 230400
+  port: "/dev/ttyUSB0"
+  rate: 200
+daq: 
+  v_range: 5
+  chan_num: 8
+  rate: 20000
+

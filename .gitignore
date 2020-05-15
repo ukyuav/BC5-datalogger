@@ -1,14 +1,5 @@
-extract
-mccBuild
-getData
-config.txt
-uavCombined-raspi.cpp
-uavCombined-raspi2.cpp
-uavDAQ-raspi.cpp
 *.DAQ
 VECTORNAV*
 CONFIGDATA*
-libuldaq-1.0.0.tar.bz2
-libuldaq-1.0.0/
-vnproglib-1-1-4.zip
-vnproglib-1.1.4.0/
+build
+src/vn_test.cpp
