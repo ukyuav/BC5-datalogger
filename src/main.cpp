@@ -24,6 +24,8 @@
 #define MAX_SCAN_OPTIONS_LENGTH 256
 #define ERRSTRLEN 256
 #define PACKETSIZE 110
+#define BUFFERSIZE 16 
+#define VECTOR_IMU_RATE 200
 // Used for WiringPi numbering scheme. See the full list with `$ gpio readall`
 #define GPIO2 8 
 
@@ -44,9 +46,18 @@ Range getGain(int vRange);
 int  getvRange(int gain);
 int handleError(UlError detectError, const string info); 
 void connectVs(VnSensor &vs, string vec_port, int baudrate);
+void * transmit(void * arg);
 
 char vecFileStr[] = "VNDATA00.RAW";
 ofstream vecFile;
+
+char current_vec_bin[PACKETSIZE];
+char current_daq_bin[BUFFERSIZE];
+
+void * transmit(void * arg){ 
+    
+}
+
 
 int main(int argc, const char *argv[]) {
 	wiringPiSetup();
@@ -55,7 +66,7 @@ int main(int argc, const char *argv[]) {
   // Use YAML to set configuration variables.
   int vec_baud;
   string vec_port;
-  int vec_rate;
+  int vec_rate; // TODO: see if necessary
   int volt_range;
   int num_chan; 
   int daq_rate;
@@ -165,22 +176,23 @@ int main(int argc, const char *argv[]) {
 	vecFile.open(vecFileStr, std::ofstream::binary | std::ofstream::app);
 
 	vs.registerAsyncPacketReceivedHandler(NULL, asciiOrBinaryAsyncMessageReceived);
-  cout << (int)(daq_rate/vec_rate-1) << endl; // Setting skip factor so that the trigger happens at the desired rate.
 	AsciiAsync asciiAsync = (AsciiAsync) 0;
 	vs.writeAsyncDataOutputType(asciiAsync); // Turns on Binary Message Type
 	SynchronizationControlRegister scr( // synchronizes vecnav off of DAQ clock and triggers at desired rate
 		// SYNCINMODE_ASYNC, TODO: test sync_in on another vn300, this one is unresponsive
     SYNCINMODE_COUNT,
 		SYNCINEDGE_RISING,
-		(int)(daq_rate/vec_rate-1), // Setting skip factor so that the trigger happens at the desired rate.
-		SYNCOUTMODE_NONE,
+		//(int)(daq_rate/vec_rate-1), // Setting skip factor so that the trigger happens at the desired rate.
+    0,
+		SYNCOUTMODE_IMUREADY,
 		SYNCOUTPOLARITY_POSITIVE,
 		0,
-		0);
+		1250000);
 	vs.writeSynchronizationControl(scr);
 	BinaryOutputRegister bor(
 		ASYNCMODE_PORT1,
-		2,
+    2,
+		//400/VECTOR_IMU_RATE, // find divisor for vn IMU
 		COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS, // Note use of binary OR to configure flags.
 		TIMEGROUP_NONE,
 		IMUGROUP_TEMP | IMUGROUP_PRES,
@@ -195,8 +207,8 @@ int main(int argc, const char *argv[]) {
 	short LowChan = 0;
 	short HighChan = num_chan - 1;
 	double rated = (double)daq_rate;
-	long samplesPerChan = daq_rate; // Acquisition will be for 1 seconds' worth of data, run continuously
-	long numBufferPoints = num_chan * daq_rate;
+	long samplesPerChan = daq_rate/VECTOR_IMU_RATE; // Each scan will occur on IMU_READY which will be at this rate
+	long numBufferPoints = num_chan * samplesPerChan;
 	double* buffer = (double*) malloc(numBufferPoints * sizeof(double));
 	if(buffer == 0){
 		cout << "Out of memory\n" << endl;
@@ -209,8 +221,8 @@ int main(int argc, const char *argv[]) {
 	DAQfileStr[8] = configFileName[11];
 	FILE* DAQFile = fopen(DAQfileStr, "wb+");
 	Range gain = getGain(volt_range);
-  // tells the DAQ to send its sample rate out the SYNC port, acting as the master in a multidevice system.
-	ScanOption options = (ScanOption) ( SO_DEFAULTIO | SO_CONTINUOUS | SO_PACEROUT);
+  // DAQ is the slave to the vectornav and scan will be triggered on every IMU_READY signal
+	ScanOption options = (ScanOption) ( SO_DEFAULTIO | SO_CONTINUOUS | SO_EXTCLOCK);
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
 
 	// Wait to start recording if Push to Start is enabled
@@ -226,27 +238,34 @@ int main(int argc, const char *argv[]) {
 		}
 	}
 
-	cout << "Beginning Sampling for next" << sample_time << " minutes.\n Press enter to quit." << endl;
+	cout << "Beginning Sampling for next " << sample_time << " minutes.\n Press enter to quit." << endl;
 
 	time_t currentTime = time(NULL);
 	struct tm * timeinfo = localtime (&currentTime);
 	configFile << asctime(timeinfo) << endl;
 	configFile.close();
 
-	detectError = ulAInScan(deviceHandle, LowChan, HighChan, AI_SINGLE_ENDED, gain, samplesPerChan, &rated, options,  flags, buffer);
-  // vs.writeAsyncDataOutputFrequency(rate);
 
+	detectError = ulAInScan(deviceHandle, LowChan, HighChan, AI_SINGLE_ENDED, gain, samplesPerChan, &rated, options,  flags, buffer);
 	if (handleError(detectError, "Couldn't start scan\n")){
 		return -1;
 	}
 
+  //TriggerType scan_trig_type = TRIG_POS_EDGE;
+  //detectError = ulAInSetTrigger(deviceHandle, scan_trig_type, 0, 0, 0.0, samplesPerChan);
+  //if (handleError(detectError, "Could not set trigger\n")) {
+  //    return -1;
+  //}
+
 	ScanStatus status;
 	TransferStatus tranStat;
 	bool readLower = true;
+
 	detectError = ulAInScanStatus(deviceHandle, &status, &tranStat);
 	if(handleError(detectError,"Couldn't check scan status\n")){
 		return -1;
 	}
+
 	double runningTime = difftime(time(NULL),currentTime);
 	while(status == SS_RUNNING && !enter_press() && (runningTime <  durSec) ){
 		detectError = ulAInScanStatus(deviceHandle, &status, &tranStat);
@@ -295,6 +314,7 @@ void asciiOrBinaryAsyncMessageReceived(void* userData, Packet& p, size_t index)
 			// Not the type of binary packet we are expecting.
 			return;
 		vecFile.write(p.datastr().c_str(), PACKETSIZE );
+    strcpy(current_vec_bin, p.datastr().c_str());
 	// 	vecFile.close();
 	}
 }

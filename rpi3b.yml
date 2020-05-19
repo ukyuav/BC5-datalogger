@@ -6,5 +6,5 @@ vectornav:
 daq: 
   v_range: 5
   chan_num: 8
-  rate: 20000
+  rate: 10000
 
