@@ -3,16 +3,19 @@
 #include <fcntl.h>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <pthread.h>
 //Libraries for MCC DAQ
 #include "uldaq.h"
 #include "include/utility.h"
 // Library for GPIO pins to enable push to start
 #include <wiringPi.h> 
+#include <wiringSerial.h>
 // Include this header file to get access to VectorNav sensors.
 #include "vn/sensors.h"
 #include "vn/thread.h"
@@ -40,23 +43,39 @@ using namespace vn::protocol::uart;
 using namespace vn::xplat;
 
 
+struct ScanEventParameters
+{
+	double* buffer;	// data buffer
+  long buffer_size; // size of buffer
+	int lowChan;	// first channel in acquisition
+	int highChan;	// last channel in acquisition
+};
+typedef struct ScanEventParameters ScanEventParameters;
+
+struct TransmitArgs { 
+  char* xbee_port;
+  int xbee_rate;
+};
+
 // Method declarations for future use.
-void asciiOrBinaryAsyncMessageReceived(void* userData, Packet& p, size_t index);
+void * transmit(void * ptr);
+void* wait_for_sig(void*);
 Range getGain(int vRange);
 int  getvRange(int gain);
+int getConfigNumber(string pathname);
 int handleError(UlError detectError, const string info); 
 void connectVs(VnSensor &vs, string vec_port, int baudrate);
-void * transmit(void * arg);
+void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, unsigned long long eventData, void* userData);
+void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index);
 
-char vecFileStr[] = "VNDATA00.RAW";
 ofstream vecFile;
+
+unsigned long long past_scan = 0; 
+FILE* DAQFile;
 
 char current_vec_bin[PACKETSIZE];
 char current_daq_bin[BUFFERSIZE];
-
-void * transmit(void * arg){ 
-    
-}
+bool stop_transmitting = false;
 
 
 int main(int argc, const char *argv[]) {
@@ -71,11 +90,15 @@ int main(int argc, const char *argv[]) {
   int num_chan; 
   int daq_rate;
   double sample_time;
+  int xbee_rate;
+  string xbee_port; 
+  string output_dir; 
 
   if (argc == 2) {
     YAML::Node config = YAML::LoadFile(argv[1]);
 
     sample_time = config["sample_duration"].as<double>();
+    output_dir = config["output_dir"].as<string>();
 
     // vectornav config
     YAML::Node vec_config = config["vectornav"];
@@ -89,10 +112,29 @@ int main(int argc, const char *argv[]) {
     num_chan = daq_config["chan_num"].as<int>(); 
     daq_rate = daq_config["rate"].as<int>();
 
+    YAML::Node xbee_config = config["xbee"];
+    xbee_rate = xbee_config["rate"].as<int>();
+    xbee_port = xbee_config["port"].as<string>();
+
   } else { 
     cerr << "No config file provided. Exiting" << endl;
     exit(1);
   }
+
+  // acquire filenames 
+  int config_num = getConfigNumber(output_dir);
+  if (config_num < 0) { 
+    cerr << "Output directory will not work for sampling." << endl;
+    exit(1);
+  }
+  cout << "This is config run: " << config_num << endl; 
+  cout << "Outputting files to: " << output_dir << endl; 
+  char* vec_file_str = new char[output_dir.length()+13];
+  char* daq_file_str = new char[output_dir.length()+14];
+  char* conf_file_str = new char[output_dir.length()+13];
+  sprintf(vec_file_str, "%s/VNDATA%d.RAW", output_dir.c_str(), config_num);
+  sprintf(daq_file_str, "%s/DAQDATA%d.RAW", output_dir.c_str(), config_num);
+  sprintf(conf_file_str, "%s/CONFIG%d.YML", output_dir.c_str(), config_num);
 
 	cout << "Rate: " << daq_rate << " Hz" << endl;  
 	cout << "Number of Channels: " << num_chan << endl;
@@ -148,17 +190,8 @@ int main(int argc, const char *argv[]) {
 	// Write config values back to config.txt
   // TODO: there might be a better way to do this
 	ofstream configFile;
-	char configFileName[] = "CONFIG_RUN00.yml";
-	for (int i = 0; i < 100; i++) {
-		configFileName[10] = i / 10 + '0';
-		configFileName[11] = i % 10 + '0';
-		struct stat statbuf;
-		if (stat(configFileName, &statbuf) != 0) {//File doesn't already exist
-			break;
-		}
-	}
   ifstream yamlFile(argv[1]);
-	configFile.open(configFileName);
+	configFile.open(conf_file_str);
   configFile << yamlFile.rdbuf(); // simply clone the config file to this run's config file
 	configFile.flush();
 
@@ -171,11 +204,9 @@ int main(int argc, const char *argv[]) {
 	string mn = vs.readModelNumber();
 	cout << "VectorNav connected. Model Number: " << mn << endl;
 	
-	vecFileStr[6] = configFileName[10];
-	vecFileStr[7] = configFileName[11];
-	vecFile.open(vecFileStr, std::ofstream::binary | std::ofstream::app);
+	vecFile.open(vec_file_str, std::ofstream::binary | std::ofstream::app);
 
-	vs.registerAsyncPacketReceivedHandler(NULL, asciiOrBinaryAsyncMessageReceived);
+	vs.registerAsyncPacketReceivedHandler(NULL, vecnavBinaryEventHandle);
 	AsciiAsync asciiAsync = (AsciiAsync) 0;
 	vs.writeAsyncDataOutputType(asciiAsync); // Turns on Binary Message Type
 	SynchronizationControlRegister scr( // synchronizes vecnav off of DAQ clock and triggers at desired rate
@@ -203,11 +234,10 @@ int main(int argc, const char *argv[]) {
 
 
   // setup DAQ
-	int durSec = sample_time*60;
 	short LowChan = 0;
 	short HighChan = num_chan - 1;
 	double rated = (double)daq_rate;
-	long samplesPerChan = daq_rate/VECTOR_IMU_RATE; // Each scan will occur on IMU_READY which will be at this rate
+	long samplesPerChan = daq_rate*10; // holds 10s of data
 	long numBufferPoints = num_chan * samplesPerChan;
 	double* buffer = (double*) malloc(numBufferPoints * sizeof(double));
 	if(buffer == 0){
@@ -215,11 +245,7 @@ int main(int argc, const char *argv[]) {
 		return -1;
 	}
 
-	char DAQfileStr[] = "DAQDATA00.RAW";
-
-	DAQfileStr[7] = configFileName[10];
-	DAQfileStr[8] = configFileName[11];
-	FILE* DAQFile = fopen(DAQfileStr, "wb+");
+	DAQFile = fopen(daq_file_str, "wb+");
 	Range gain = getGain(volt_range);
   // DAQ is the slave to the vectornav and scan will be triggered on every IMU_READY signal
 	ScanOption options = (ScanOption) ( SO_DEFAULTIO | SO_CONTINUOUS | SO_EXTCLOCK);
@@ -240,84 +266,65 @@ int main(int argc, const char *argv[]) {
 
 	cout << "Beginning Sampling for next " << sample_time << " minutes.\n Press enter to quit." << endl;
 
+  // setup scan event for the DAQ
+  long event_on_samples = samplesPerChan/100; // trigger event every 0.1 seconds.
+  DaqEventType scan_event = (DE_ON_DATA_AVAILABLE);
+  ScanEventParameters user_data;
+  user_data.buffer = buffer;
+  user_data.buffer_size = numBufferPoints; 
+  user_data.lowChan = LowChan;
+  user_data.highChan = HighChan;
+  detectError = ulEnableEvent(deviceHandle, scan_event, event_on_samples, daqEventHandle, &user_data);
+	if (handleError(detectError, "Could not enable event\n")){
+		return -1;
+	}
+
 	time_t currentTime = time(NULL);
 	struct tm * timeinfo = localtime (&currentTime);
 	configFile << asctime(timeinfo) << endl;
 	configFile.close();
 
+  usleep(20000); // increase stability of the deviceHandle when on the external clock
 
 	detectError = ulAInScan(deviceHandle, LowChan, HighChan, AI_SINGLE_ENDED, gain, samplesPerChan, &rated, options,  flags, buffer);
 	if (handleError(detectError, "Couldn't start scan\n")){
 		return -1;
 	}
 
-  //TriggerType scan_trig_type = TRIG_POS_EDGE;
-  //detectError = ulAInSetTrigger(deviceHandle, scan_trig_type, 0, 0, 0.0, samplesPerChan);
-  //if (handleError(detectError, "Could not set trigger\n")) {
-  //    return -1;
-  //}
+  cout << "Actual sample rate: " << rated << endl;
 
-	ScanStatus status;
-	TransferStatus tranStat;
-	bool readLower = true;
+  struct TransmitArgs xbee_args;
+  xbee_args.xbee_port = strdup(xbee_port.c_str());
+  xbee_args.xbee_rate = xbee_rate; 
+  pthread_t transmit_thread; 
+  pthread_t timer_thread;
+  pthread_create(&transmit_thread, NULL, transmit, &xbee_args);
+  pthread_create(&timer_thread, NULL, wait_for_sig, NULL); 
 
-	detectError = ulAInScanStatus(deviceHandle, &status, &tranStat);
-	if(handleError(detectError,"Couldn't check scan status\n")){
-		return -1;
-	}
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  ts.tv_sec += (sample_time*60);
 
-	double runningTime = difftime(time(NULL),currentTime);
-	while(status == SS_RUNNING && !enter_press() && (runningTime <  durSec) ){
-		detectError = ulAInScanStatus(deviceHandle, &status, &tranStat);
+  pthread_timedjoin_np(timer_thread, NULL, &ts); // more efficient than checking the time in a loop
+  pthread_cancel(timer_thread);
 
-		if(handleError(detectError,"Couldn't check scan status\n")){
-			return -1;
-		}
-		if( (tranStat.currentIndex > (numBufferPoints/2) ) & readLower){
-			fwrite(buffer, sizeof(double), numBufferPoints/2 , DAQFile);
-			readLower = false;
-		}
-		else if( (tranStat.currentIndex < (numBufferPoints/2) ) & !readLower){
-			fwrite(&(buffer[numBufferPoints/2]), sizeof(double), numBufferPoints/2, DAQFile);
-			readLower = true;
-		}
-		runningTime = difftime(time(NULL), currentTime);
-	}
+  stop_transmitting = true;
+  pthread_join(transmit_thread, NULL);
+  // TODO: also capture interrupt signal and do these there.
+  // wrap up daq
+  ulAInScanStop(deviceHandle);
+  ulDisableEvent(deviceHandle, scan_event);
+  ulDisconnectDaqDevice(deviceHandle);
 	fclose(DAQFile);
+
+  // wrap up vecnav
 	vs.unregisterAsyncPacketReceivedHandler();
 	vs.disconnect();
 	vecFile.close();
 
-
-	detectError = ulAInScanStop(deviceHandle);
-	if(handleError(detectError,"Couldn't stop background process\n")){
-		return -1;
-	}
 	cout << "Sampling completed." << endl;
 }
 
-void asciiOrBinaryAsyncMessageReceived(void* userData, Packet& p, size_t index)
-{
-// 	The following line and the vecFile.close() command at the bottom of this function are not recommended when the sync mount option is set for the filesystem
-//	vecFile.open(vecFileStr,std::ofstream::binary | std::ofstream::app);
-	if (p.type() == Packet::TYPE_BINARY)
-	{
-		// First make sure we have a binary packet type we expect since there
-		// are many types of binary output types that can be configured.
-		if (!p.isCompatible(
-			COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS, // Note use of binary OR to configure flags.
-			TIMEGROUP_NONE,
-			IMUGROUP_TEMP | IMUGROUP_PRES,
-			GPSGROUP_NONE,
-			ATTITUDEGROUP_YPRU,
-			INSGROUP_POSU | INSGROUP_VELU))
-			// Not the type of binary packet we are expecting.
-			return;
-		vecFile.write(p.datastr().c_str(), PACKETSIZE );
-    strcpy(current_vec_bin, p.datastr().c_str());
-	// 	vecFile.close();
-	}
-}
 
 Range getGain(int vRange) {
 	Range gain;
@@ -440,4 +447,110 @@ void connectVs(VnSensor &vs, string vec_port, int baudrate) {
       break;
     }
   }
+}
+
+void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index)
+{
+// 	The following line and the vecFile.close() command at the bottom of this function are not recommended when the sync mount option is set for the filesystem
+//	vecFile.open(vecFileStr,std::ofstream::binary | std::ofstream::app);
+	if (p.type() == Packet::TYPE_BINARY)
+	{
+		// First make sure we have a binary packet type we expect since there
+		// are many types of binary output types that can be configured.
+		if (!p.isCompatible(
+			COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS, // Note use of binary OR to configure flags.
+			TIMEGROUP_NONE,
+			IMUGROUP_TEMP | IMUGROUP_PRES,
+			GPSGROUP_NONE,
+			ATTITUDEGROUP_YPRU,
+			INSGROUP_POSU | INSGROUP_VELU))
+			// Not the type of binary packet we are expecting.
+			return;
+		vecFile.write(p.datastr().c_str(), PACKETSIZE );
+    strcpy(current_vec_bin, p.datastr().c_str());
+	  // 	vecFile.close();
+	}
+}
+
+void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, unsigned long long eventData, void* userData) {
+
+  /*
+   * eventData is the total number of sample events that have occured
+   * past_scan is the event index that was stopped at last scan
+   * total_samples eventData*chanCount is effectively the index of the buffer
+   * the buffer will wrap around once total_samples > bufferSize 
+   * this makes total_samples%bufferSize the true index accounting for the buffer wrap around
+   */
+
+	DaqDeviceDescriptor activeDevDescriptor;
+	ulGetDaqDeviceDescriptor(daqDeviceHandle, &activeDevDescriptor);
+	UlError err = ERR_NO_ERROR;
+
+  ScanEventParameters* scanEventParameters = (ScanEventParameters*) userData;
+  int chan_count = scanEventParameters->highChan - scanEventParameters->lowChan + 1; 
+  unsigned long long total_samples = eventData*chan_count; 
+  long number_of_samples; 
+
+	if (eventType == DE_ON_DATA_AVAILABLE) {
+    if (total_samples % scanEventParameters->buffer_size < past_scan) { // buffer wrap around
+      number_of_samples = past_scan - scanEventParameters->buffer_size; // go to the end of the buffer
+      fwrite(&(scanEventParameters->buffer[past_scan]), sizeof(double), number_of_samples, DAQFile);
+      number_of_samples = total_samples%scanEventParameters->buffer_size;
+      fwrite(&(scanEventParameters->buffer[0]), sizeof(double), number_of_samples, DAQFile); // restart on the buffer
+    } else { // normal operation
+      number_of_samples = total_samples%scanEventParameters->buffer_size - past_scan;
+      fwrite(&(scanEventParameters->buffer[past_scan]), sizeof(double), number_of_samples, DAQFile);
+    }
+    past_scan = total_samples % scanEventParameters->buffer_size;
+	} else if (eventType == DE_ON_INPUT_SCAN_ERROR) {
+		err = (UlError) eventData;
+		char errMsg[ERR_MSG_LEN];
+		ulGetErrMsg(err, errMsg);
+		printf("Error Code: %d \n", err);
+		printf("Error Message: %s \n", errMsg);
+	} else if (eventType == DE_ON_END_OF_INPUT_SCAN) {
+		printf("\nThe scan using device %s (%s) is complete \n", activeDevDescriptor.productName, activeDevDescriptor.uniqueId);
+	}
+}
+
+
+
+void * transmit(void * ptr){
+  struct TransmitArgs *args = (struct TransmitArgs *)ptr; 
+  int rate = args->xbee_rate;
+  char *port = args->xbee_port;
+  int fd;
+  if((fd=serialOpen(port, 9600)) < 0) {
+    cerr << "Could not connect to Xbee" << endl; 
+    return NULL;
+  }
+  while(!stop_transmitting) { 
+    serialPuts(fd, current_vec_bin); // transmit vec_data
+    serialPuts(fd, current_daq_bin);  // transmit daq_data
+    usleep((int)(1000000/rate));
+  }
+  return NULL;
+}
+
+void* wait_for_sig(void*){
+  string _dummy;
+  getline(cin, _dummy);
+  return NULL;
+}
+
+int getConfigNumber(string pathname) { 
+  int config_num = 0; 
+  const char* conf_str = "%s/CONFIG%d.YML"; 
+  char * conf_path = new char[pathname.length()+13]();
+  sprintf(conf_path, conf_str, pathname.c_str(), config_num);
+  struct stat statbuf;
+  while(config_num < 100) { 
+    if(stat(conf_path, &statbuf) != 0){  // file doesnt already exist
+      return config_num; 
+    } else { 
+      config_num++; 
+      sprintf(conf_path, conf_str, pathname.c_str(), config_num);
+    }
+  }
+  return -1; // somehow there are no integers left
 }

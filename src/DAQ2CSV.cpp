@@ -41,7 +41,7 @@ int main (int argc, char * argv[]){
 	FILE * DAQFile;
   FILE * VNFile;
 
-  if (argc != 3) {
+  if (argc != 4) {
     cerr << "Usage: ./DAQ2CSV [DAQFile] [VNFile] [ConfigFile]" << endl;
     return -1; 
   }
@@ -67,7 +67,7 @@ int main (int argc, char * argv[]){
   rate = config["daq"]["rate"].as<int>();
 
 	float floatRate = (float)rate;
-	numChan = (int)(NULL);
+	numChan = config["daq"]["chan_num"].as<int>();
 	float  period = (((float) 1)/(floatRate))*((float)(1000000000)); // convert rate to period in nanoseconds. VectorNav GPS timestamp is in nanoseconds.
 	int intPeriod = (int)period; // convert float period back to int.
 
@@ -88,7 +88,7 @@ int main (int argc, char * argv[]){
 	}
 
 	// write daq results into csv
-	std::cout << "Writing DAQ CSV File." << endl;
+	cout << "Writing DAQ CSV File." << endl;
 	for(uint64_t i = 0; i*sizeof(double) < fileSize/sizeof(double)/numChan; i++){
     // extrapolate time from vectornav time and sample period
     // TODO: once synchronization is complete, vectornav samples should line up with every x number 
