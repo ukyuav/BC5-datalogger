@@ -1,13 +1,13 @@
-sample_duration: 20
+sample_duration: 1
 output_dir: "/home/pi/logs"
 vectornav:
   baud: 230400
-  port: "/dev/ttyUSB0"
+  port: "/dev/ttyUSB1"
   rate: 200
 daq: 
   v_range: 5
   chan_num: 8
   rate: 20000
 xbee: 
-  rate: 10
-  port: "/dev/ttyUSB1"
+  rate: 1
+  port: "/dev/pts/3"

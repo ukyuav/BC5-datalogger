@@ -15,11 +15,16 @@ add_executable(getData main.cpp)
 add_executable(extract extract.cpp)
 add_executable(DAQ2CSV DAQ2CSV.cpp)
 add_executable(vn_test vn_test.cpp)
+add_executable(xbee_receiver xbee_receiver.cpp)
 
 target_compile_options(getData PUBLIC -O3) # compile the data aquisition to max optimization
 
 include_directories(vnproglib-1.1.4.0/cpp/include yaml-cpp/include uldaq/src)
 
+target_link_libraries(xbee_receiver 
+  libvncxx
+  wiringPi
+)
 target_link_libraries(vn_test
 	libvncxx
  ) 

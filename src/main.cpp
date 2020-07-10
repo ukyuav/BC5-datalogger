@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <filesystem>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -27,6 +28,7 @@
 #define MAX_SCAN_OPTIONS_LENGTH 256
 #define ERRSTRLEN 256
 #define PACKETSIZE 110
+#define DAQSIZE 64
 #define BUFFERSIZE 16 
 #define VECTOR_IMU_RATE 200
 // Used for WiringPi numbering scheme. See the full list with `$ gpio readall`
@@ -70,11 +72,11 @@ void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index);
 
 ofstream vecFile;
 
-unsigned long long past_scan = 0; 
+unsigned long past_scan = 0; 
 FILE* DAQFile;
 
 char current_vec_bin[PACKETSIZE];
-char current_daq_bin[BUFFERSIZE];
+stringstream current_daq_bin;
 bool stop_transmitting = false;
 
 
@@ -247,8 +249,8 @@ int main(int argc, const char *argv[]) {
 
 	DAQFile = fopen(daq_file_str, "wb+");
 	Range gain = getGain(volt_range);
-  // DAQ is the slave to the vectornav and scan will be triggered on every IMU_READY signal
-	ScanOption options = (ScanOption) ( SO_DEFAULTIO | SO_CONTINUOUS | SO_EXTCLOCK);
+  // DAQ is master to Vectornav, attached VN_SYNCIN to CLKOUT on DAQ.
+	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_CONTINUOUS | SO_PACEROUT);
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
 
 	// Wait to start recording if Push to Start is enabled
@@ -455,6 +457,7 @@ void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index)
 //	vecFile.open(vecFileStr,std::ofstream::binary | std::ofstream::app);
 	if (p.type() == Packet::TYPE_BINARY)
 	{
+    string p_str = p.datastr();
 		// First make sure we have a binary packet type we expect since there
 		// are many types of binary output types that can be configured.
 		if (!p.isCompatible(
@@ -466,8 +469,9 @@ void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index)
 			INSGROUP_POSU | INSGROUP_VELU))
 			// Not the type of binary packet we are expecting.
 			return;
-		vecFile.write(p.datastr().c_str(), PACKETSIZE );
-    strcpy(current_vec_bin, p.datastr().c_str());
+		vecFile.write(p_str.c_str(), PACKETSIZE );
+    const char * p_cstr = p_str.c_str();
+    memcpy(current_vec_bin, p_cstr, PACKETSIZE);
 	  // 	vecFile.close();
 	}
 }
@@ -492,16 +496,21 @@ void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, uns
   long number_of_samples; 
 
 	if (eventType == DE_ON_DATA_AVAILABLE) {
-    if (total_samples % scanEventParameters->buffer_size < past_scan) { // buffer wrap around
+    unsigned long sample_index = total_samples % scanEventParameters->buffer_size;
+    if (sample_index < past_scan) { // buffer wrap around
       number_of_samples = past_scan - scanEventParameters->buffer_size; // go to the end of the buffer
       fwrite(&(scanEventParameters->buffer[past_scan]), sizeof(double), number_of_samples, DAQFile);
-      number_of_samples = total_samples%scanEventParameters->buffer_size;
+      number_of_samples = sample_index;
       fwrite(&(scanEventParameters->buffer[0]), sizeof(double), number_of_samples, DAQFile); // restart on the buffer
     } else { // normal operation
-      number_of_samples = total_samples%scanEventParameters->buffer_size - past_scan;
+      number_of_samples = sample_index - past_scan;
       fwrite(&(scanEventParameters->buffer[past_scan]), sizeof(double), number_of_samples, DAQFile);
     }
-    past_scan = total_samples % scanEventParameters->buffer_size;
+    current_daq_bin.str("");
+    for(int i=chan_count-1; i>=0; i--){
+     current_daq_bin << std::hexfloat << scanEventParameters->buffer[sample_index-i]; // converts the double values to hex
+    }
+    past_scan = sample_index;
 	} else if (eventType == DE_ON_INPUT_SCAN_ERROR) {
 		err = (UlError) eventData;
 		char errMsg[ERR_MSG_LEN];
@@ -525,8 +534,11 @@ void * transmit(void * ptr){
     return NULL;
   }
   while(!stop_transmitting) { 
-    serialPuts(fd, current_vec_bin); // transmit vec_data
-    serialPuts(fd, current_daq_bin);  // transmit daq_data
+    //cout << current_vec_bin << endl;
+    for(int i=0; i < PACKETSIZE; i++){
+      serialPutchar(fd, current_vec_bin[i]);
+    }
+    serialPuts(fd, current_daq_bin.str().c_str());
     usleep((int)(1000000/rate));
   }
   return NULL;
