@@ -1,4 +1,4 @@
-sample_duration: 1
+sample_duration: 20
 output_dir: "/home/pi/logs"
 vectornav:
   baud: 230400

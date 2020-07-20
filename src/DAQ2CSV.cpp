@@ -89,7 +89,7 @@ int main (int argc, char * argv[]){
 
 	// write daq results into csv
 	cout << "Writing DAQ CSV File." << endl;
-	for(uint64_t i = 0; i*sizeof(double) < fileSize/sizeof(double)/numChan; i++){
+	for(uint64_t i = 0; i < fileSize/sizeof(double)/numChan; i++){
     // extrapolate time from vectornav time and sample period
     // TODO: once synchronization is complete, vectornav samples should line up with every x number 
     // of DAQ samples. Use this fact to make these timestamps better.

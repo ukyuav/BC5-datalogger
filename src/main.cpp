@@ -30,9 +30,9 @@
 #define PACKETSIZE 110
 #define DAQSIZE 64
 #define BUFFERSIZE 16 
-#define VECTOR_IMU_RATE 200
 // Used for WiringPi numbering scheme. See the full list with `$ gpio readall`
 #define GPIO2 8 
+#define GPIO3 9 
 
 //Allows for data recording to be started by a pushbutton connected to GPIO pins
 //Set to zero to disable
@@ -79,15 +79,15 @@ char current_vec_bin[PACKETSIZE];
 stringstream current_daq_bin;
 bool stop_transmitting = false;
 
-
 int main(int argc, const char *argv[]) {
 	wiringPiSetup();
   pinMode(GPIO2, INPUT);
+  pinMode(GPIO3, OUTPUT);
 
   // Use YAML to set configuration variables.
   int vec_baud;
   string vec_port;
-  int vec_rate; // TODO: see if necessary
+  int vec_rate; 
   int volt_range;
   int num_chan; 
   int daq_rate;
@@ -212,11 +212,9 @@ int main(int argc, const char *argv[]) {
 	AsciiAsync asciiAsync = (AsciiAsync) 0;
 	vs.writeAsyncDataOutputType(asciiAsync); // Turns on Binary Message Type
 	SynchronizationControlRegister scr( // synchronizes vecnav off of DAQ clock and triggers at desired rate
-		// SYNCINMODE_ASYNC, TODO: test sync_in on another vn300, this one is unresponsive
-    SYNCINMODE_COUNT,
+    SYNCINMODE_ASYNC,
 		SYNCINEDGE_RISING,
-		//(int)(daq_rate/vec_rate-1), // Setting skip factor so that the trigger happens at the desired rate.
-    0,
+		(int)(daq_rate/vec_rate-1), // Setting skip factor so that the trigger happens at the desired rate.
 		SYNCOUTMODE_IMUREADY,
 		SYNCOUTPOLARITY_POSITIVE,
 		0,
@@ -224,8 +222,8 @@ int main(int argc, const char *argv[]) {
 	vs.writeSynchronizationControl(scr);
 	BinaryOutputRegister bor(
 		ASYNCMODE_PORT1,
-    2,
-		//400/VECTOR_IMU_RATE, // find divisor for vn IMU
+    //400/vec_rate, // calc divisor for vn IMU
+    0,
 		COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS, // Note use of binary OR to configure flags.
 		TIMEGROUP_NONE,
 		IMUGROUP_TEMP | IMUGROUP_PRES,
@@ -317,6 +315,8 @@ int main(int argc, const char *argv[]) {
   ulAInScanStop(deviceHandle);
   ulDisableEvent(deviceHandle, scan_event);
   ulDisconnectDaqDevice(deviceHandle);
+  sleep(5);
+  fflush(DAQFile);
 	fclose(DAQFile);
 
   // wrap up vecnav
@@ -453,8 +453,7 @@ void connectVs(VnSensor &vs, string vec_port, int baudrate) {
 
 void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index)
 {
-// 	The following line and the vecFile.close() command at the bottom of this function are not recommended when the sync mount option is set for the filesystem
-//	vecFile.open(vecFileStr,std::ofstream::binary | std::ofstream::app);
+  // 	The following line and the vecFile.close() command at the bottom of this function are not recommended when the sync mount option is set for the filesystem
 	if (p.type() == Packet::TYPE_BINARY)
 	{
     string p_str = p.datastr();
@@ -472,9 +471,9 @@ void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index)
 		vecFile.write(p_str.c_str(), PACKETSIZE );
     const char * p_cstr = p_str.c_str();
     memcpy(current_vec_bin, p_cstr, PACKETSIZE);
-	  // 	vecFile.close();
 	}
 }
+
 
 void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, unsigned long long eventData, void* userData) {
 
@@ -498,7 +497,7 @@ void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, uns
 	if (eventType == DE_ON_DATA_AVAILABLE) {
     unsigned long sample_index = total_samples % scanEventParameters->buffer_size;
     if (sample_index < past_scan) { // buffer wrap around
-      number_of_samples = past_scan - scanEventParameters->buffer_size; // go to the end of the buffer
+      number_of_samples = scanEventParameters->buffer_size - past_scan; // go to the end of the buffer
       fwrite(&(scanEventParameters->buffer[past_scan]), sizeof(double), number_of_samples, DAQFile);
       number_of_samples = sample_index;
       fwrite(&(scanEventParameters->buffer[0]), sizeof(double), number_of_samples, DAQFile); // restart on the buffer
@@ -534,7 +533,6 @@ void * transmit(void * ptr){
     return NULL;
   }
   while(!stop_transmitting) { 
-    //cout << current_vec_bin << endl;
     for(int i=0; i < PACKETSIZE; i++){
       serialPutchar(fd, current_vec_bin[i]);
     }

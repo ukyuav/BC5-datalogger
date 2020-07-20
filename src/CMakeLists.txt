@@ -6,6 +6,7 @@ add_compile_options(-g -Wall)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_BUILD_TYPE DEBUG)
 
 add_subdirectory(vnproglib-1.1.4.0/cpp)
 add_subdirectory(yaml-cpp)
