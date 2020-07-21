@@ -27,6 +27,7 @@
 #define MAX_STR_LENGTH 64
 #define MAX_SCAN_OPTIONS_LENGTH 256
 #define ERRSTRLEN 256
+// TODO: compute packet size dynamically so that we can change the message params
 #define PACKETSIZE 110
 #define DAQSIZE 64
 #define BUFFERSIZE 16 
@@ -219,6 +220,7 @@ int main(int argc, const char *argv[]) {
 		0,
 		1250000);
 	vs.writeSynchronizationControl(scr);
+  // TODO: the messages should be customizable from the configuration. Should not be constants here and in vecnavHandle
 	BinaryOutputRegister bor(
 		ASYNCMODE_PORT1,
     //400/vec_rate, // calc divisor for vn IMU
@@ -456,17 +458,19 @@ void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index)
 		// First make sure we have a binary packet type we expect since there
 		// are many types of binary output types that can be configured.
 		if (!p.isCompatible(
-			COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS, // Note use of binary OR to configure flags.
-			TIMEGROUP_NONE,
-			IMUGROUP_TEMP | IMUGROUP_PRES,
-			GPSGROUP_NONE,
-			ATTITUDEGROUP_YPRU,
-			INSGROUP_POSU | INSGROUP_VELU))
+				COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS, // Note use of binary OR to configure flags.
+        TIMEGROUP_TIMEUTC,
+        IMUGROUP_TEMP | IMUGROUP_PRES,
+        GPSGROUP_POSLLA,
+        ATTITUDEGROUP_YPRU,
+        INSGROUP_POSU | INSGROUP_VELU))
 			// Not the type of binary packet we are expecting.
 			return;
-		vecFile.write(p_str.c_str(), PACKETSIZE );
+    // TODO: calculate this once, it should be the same and strlen is a heavy function
     const char * p_cstr = p_str.c_str();
-    memcpy(current_vec_bin, p_cstr, PACKETSIZE);
+    size_t pack_size = strlen(p_cstr);
+		vecFile.write(p_cstr, pack_size );
+    memcpy(current_vec_bin, p_cstr, pack_size);
 	}
 }
 
