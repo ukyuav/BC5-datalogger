@@ -17,10 +17,12 @@
 #include "vn/sensors.h"
 // We need this file for our sleep function.
 #include "vn/thread.h"
+#include "vn/compositedata.h"
+#include "vn/util.h"
 
 #include "yaml-cpp/yaml.h"
 
-#define PACKETSIZE 110
+#define HEADERSIZE 20
 //#define PERIOD 5000000
 #define NAMEMAX 100
 using namespace std;
@@ -36,7 +38,7 @@ unsigned short calculateCRC(unsigned char data[], unsigned int length);
 int main (int argc, char * argv[]){
 	ofstream outFile;
 	double  dblBuffer;
-	uint64_t time;
+	uint64_t start_time;
 	int rate, numChan;
 	FILE * DAQFile;
   FILE * VNFile;
@@ -73,27 +75,41 @@ int main (int argc, char * argv[]){
 
 	
 	// extract first timestamp from VectorNav File
-	char buffer[PACKETSIZE];
-	int numRead = read(VNfileDesc, buffer, PACKETSIZE);
+  // read header to get the packet size
+	char head_buffer[HEADERSIZE];
+	int numRead = read(VNfileDesc, head_buffer, HEADERSIZE);
 	if (numRead == -1) {
 		perror("Can't read first packet: ");
 	}
-	if(numRead == PACKETSIZE) {
-		Packet p(buffer, PACKETSIZE);
-		unsigned char check[PACKETSIZE - 1];
-		memcpy(check, &buffer[1], PACKETSIZE - 1);
-		if (calculateCRC(check, PACKETSIZE - 1) == 0) {
-			time = p.extractUint64();
+  size_t pack_size = Packet::computeBinaryPacketLength(head_buffer);
+	char buffer[pack_size];
+	numRead = read(VNfileDesc, buffer, pack_size - HEADERSIZE);
+	numRead = read(VNfileDesc, buffer, pack_size);
+	if (numRead == -1) {
+		perror("Can't read first packet: ");
+	}
+	if(numRead == pack_size) {
+		Packet p(buffer, pack_size);
+		unsigned char check[pack_size - 1];
+		memcpy(check, &buffer[1], pack_size - 1);
+		if (calculateCRC(check, pack_size - 1) == 0) {
+      CompositeData cd = CompositeData::parse(p);
+      if (cd.hasTimeGps()) {
+        start_time = cd.timeGps();
+      } else { 
+        perror("Data packets do not have GPS times");
+      }
 		}
 	}
 
 	// write daq results into csv
 	cout << "Writing DAQ CSV File." << endl;
+  cout << "Number of Samples: " << fileSize/sizeof(double)/numChan << endl;
 	for(uint64_t i = 0; i < fileSize/sizeof(double)/numChan; i++){
     // extrapolate time from vectornav time and sample period
     // TODO: once synchronization is complete, vectornav samples should line up with every x number 
     // of DAQ samples. Use this fact to make these timestamps better.
-		outFile << (time + (intPeriod*i));
+		outFile << (start_time + (intPeriod*i));
 		for(int j = 0; j < numChan; j++){
 			fread(&dblBuffer , sizeof(double), 1, DAQFile);
 			outFile << "," <<  dblBuffer;

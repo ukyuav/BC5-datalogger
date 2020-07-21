@@ -11,7 +11,7 @@
 #include "vn/thread.h"
 
 #define NAMEMAX 100
-#define HEADERSIZE 10
+#define HEADERSIZE 20
 
 using namespace std;
 using namespace vn::math;
@@ -95,11 +95,11 @@ int main(int argc, char *argv[])
       // TODO: some kind of execution mapping would make this cleaner
       CompositeData cd = CompositeData::parse(p);
       if (header) { 
-        if (cd.hasTimeUtc()) {
-          outFile << "UTC time" << "," ;
-        }
         if (cd.hasTimeGps()) {
           outFile << "GPS time" << ",";
+        }
+        if (cd.hasTimeUtc()) {
+          outFile << "UTC time" << "," ;
         }
         if (cd.hasYawPitchRoll()) {
           outFile << "YPR" << ",";
@@ -131,20 +131,20 @@ int main(int argc, char *argv[])
         outFile << endl;
         header = false;
       }
-      if (cd.hasTimeUtc()) {
-        TimeUtc utc_time = cd.timeUtc();
-        outFile << 
-          utc_time.year << ":" << 
-          utc_time.month << ":" << 
-          utc_time.day << ":" << 
-          utc_time.hour << ":" << 
-          utc_time.min << ":" << 
-          utc_time.sec << ":" << 
-          utc_time.ms << ",";
-      }
       if (cd.hasTimeGps()) {
         uint64_t gps_time = cd.timeGps();
         outFile << gps_time << ",";
+      }
+      if (cd.hasTimeUtc()) {
+        TimeUtc utc_time = cd.timeUtc();
+        outFile << 
+          (int)utc_time.year << ":" << 
+          (int)utc_time.month << ":" << 
+          (int)utc_time.day << ":" << 
+          (int)utc_time.hour << ":" << 
+          (int)utc_time.min << ":" << 
+          (int)utc_time.sec << ":" << 
+          (int)utc_time.ms << ",";
       }
       if (cd.hasYawPitchRoll()) {
         vec3f ypr = cd.yawPitchRoll();
@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
 		else if(numRead == 0) {
 			std::cout << "Reached end of file." << endl;
 			std::cout << "Packets recieved: " << count << endl;
-			std::cout << "Packets corrupted: " << countCorrupt;
+			std::cout << "Packets corrupted: " << countCorrupt << endl;
 			outFile.close();
 			return 0;
 		}

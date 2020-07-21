@@ -1,14 +1,14 @@
-sample_duration: 1
-output_dir: "/home/pi/logs"
+sample_duration: 100
+output_dir:  "/media/usb" # WARNING: only use /media/usb if you have mounted a USB drive there. "/home/pi/logs"
 button_start: true
 vectornav:
-  baud: 230400
+  baud: 460800 # if you are having sync problems, bump the baudrate.
   port: "/dev/ttyUSB0"
   rate: 200
 daq: 
   v_range: 5
   chan_num: 8
-  rate: 20000
+  rate: 200
 xbee: 
   rate: 1
   port: "/dev/pts/3"

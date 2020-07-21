@@ -61,6 +61,7 @@ struct TransmitArgs {
 // Method declarations for future use.
 void * transmit(void * ptr);
 void* wait_for_sig(void*);
+void* wait_for_but(void*);
 Range getGain(int vRange);
 int  getvRange(int gain);
 int getConfigNumber(string pathname);
@@ -223,7 +224,6 @@ int main(int argc, const char *argv[]) {
   // TODO: the messages should be customizable from the configuration. Should not be constants here and in vecnavHandle
 	BinaryOutputRegister bor(
 		ASYNCMODE_PORT1,
-    //400/vec_rate, // calc divisor for vn IMU
     0,
 		COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS, // Note use of binary OR to configure flags.
 		TIMEGROUP_TIMEUTC,
@@ -231,6 +231,7 @@ int main(int argc, const char *argv[]) {
 		GPSGROUP_POSLLA,
 		ATTITUDEGROUP_YPRU,
 		INSGROUP_POSU | INSGROUP_VELU);
+  // overwrites test output
 	vs.writeBinaryOutput1(bor);
 
 
@@ -265,7 +266,6 @@ int main(int argc, const char *argv[]) {
 		}
 	}
 
-	cout << "Beginning Sampling for next " << sample_time << " minutes.\n Press enter to quit." << endl;
 
   // setup scan event for the DAQ
   long event_on_samples = samplesPerChan/100; // trigger event every 0.1 seconds.
@@ -301,7 +301,13 @@ int main(int argc, const char *argv[]) {
   pthread_t transmit_thread; 
   pthread_t timer_thread;
   pthread_create(&transmit_thread, NULL, transmit, &xbee_args);
-  pthread_create(&timer_thread, NULL, wait_for_sig, NULL); 
+  if (button_start) { 
+    pthread_create(&timer_thread, NULL, wait_for_but, NULL); 
+  }
+  else {
+    cout << "Beginning Sampling for next " << sample_time << " minutes.\n Press enter to quit." << endl;
+    pthread_create(&timer_thread, NULL, wait_for_sig, NULL); 
+  }
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
   ts.tv_sec += (sample_time*60);
@@ -309,14 +315,14 @@ int main(int argc, const char *argv[]) {
   pthread_cancel(timer_thread);
   stop_transmitting = true;
   pthread_join(transmit_thread, NULL);
-
+  
   // wrap up daq
   ulAInScanStop(deviceHandle);
   ulDisableEvent(deviceHandle, scan_event);
   ulDisconnectDaqDevice(deviceHandle);
   fflush(DAQFile);
 	fclose(DAQFile);
-
+  
   // wrap up vecnav
 	vs.unregisterAsyncPacketReceivedHandler();
 	vs.disconnect();
@@ -468,9 +474,9 @@ void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index)
 			return;
     // TODO: calculate this once, it should be the same and strlen is a heavy function
     const char * p_cstr = p_str.c_str();
-    size_t pack_size = strlen(p_cstr);
-		vecFile.write(p_cstr, pack_size );
-    memcpy(current_vec_bin, p_cstr, pack_size);
+    size_t pack_size = p_str.length();
+		vecFile.write(p_cstr, pack_size);
+    // memcpy(current_vec_bin, p_cstr, pack_size); // # TODO dynamically allocate current_vec_bin
 	}
 }
 
@@ -505,10 +511,10 @@ void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, uns
       number_of_samples = sample_index - past_scan;
       fwrite(&(scanEventParameters->buffer[past_scan]), sizeof(double), number_of_samples, DAQFile);
     }
-    current_daq_bin.str("");
-    for(int i=chan_count-1; i>=0; i--){
-     current_daq_bin << std::hexfloat << scanEventParameters->buffer[sample_index-i]; // converts the double values to hex
-    }
+    //current_daq_bin.str("");
+    //for(int i=chan_count-1; i>=0; i--){
+    // current_daq_bin << std::hexfloat << scanEventParameters->buffer[sample_index-i]; // converts the double values to hex
+    //}
     past_scan = sample_index;
 	} else if (eventType == DE_ON_INPUT_SCAN_ERROR) {
 		err = (UlError) eventData;
@@ -542,11 +548,27 @@ void * transmit(void * ptr){
   return NULL;
 }
 
+void* wait_for_but(void*){
+	// Wait to start recording if Push to Start is enabled
+  cout << "Push  button to end sampling." << endl;
+  sleep(5); // you want at least 5 seconds of data right? Stops bounce issues with start
+  int hold = 1;
+  int btn;
+  while(hold ==1){
+    btn = digitalRead(GPIO2);
+    if (btn == LOW){
+      hold = 0;
+    }
+  }
+  return NULL;
+}
+
 void* wait_for_sig(void*){
   string _dummy;
   getline(cin, _dummy);
   return NULL;
 }
+
 
 int getConfigNumber(string pathname) { 
   int config_num = 0; 
