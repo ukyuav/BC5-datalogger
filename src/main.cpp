@@ -32,11 +32,9 @@
 #define BUFFERSIZE 16 
 // Used for WiringPi numbering scheme. See the full list with `$ gpio readall`
 #define GPIO2 8 
-#define GPIO3 9 
 
 //Allows for data recording to be started by a pushbutton connected to GPIO pins
 //Set to zero to disable
-#define PUSHTOSTART 0
 
 using namespace std;
 using namespace vn::math;
@@ -82,7 +80,6 @@ bool stop_transmitting = false;
 int main(int argc, const char *argv[]) {
 	wiringPiSetup();
   pinMode(GPIO2, INPUT);
-  pinMode(GPIO3, OUTPUT);
 
   // Use YAML to set configuration variables.
   int vec_baud;
@@ -95,12 +92,14 @@ int main(int argc, const char *argv[]) {
   int xbee_rate;
   string xbee_port; 
   string output_dir; 
+  bool button_start;
 
   if (argc == 2) {
     YAML::Node config = YAML::LoadFile(argv[1]);
 
     sample_time = config["sample_duration"].as<double>();
     output_dir = config["output_dir"].as<string>();
+    button_start = config["button_start"].as<bool>(); 
 
     // vectornav config
     YAML::Node vec_config = config["vectornav"];
@@ -225,9 +224,9 @@ int main(int argc, const char *argv[]) {
     //400/vec_rate, // calc divisor for vn IMU
     0,
 		COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS, // Note use of binary OR to configure flags.
-		TIMEGROUP_NONE,
+		TIMEGROUP_TIMEUTC,
 		IMUGROUP_TEMP | IMUGROUP_PRES,
-		GPSGROUP_NONE,
+		GPSGROUP_POSLLA,
 		ATTITUDEGROUP_YPRU,
 		INSGROUP_POSU | INSGROUP_VELU);
 	vs.writeBinaryOutput1(bor);
@@ -252,7 +251,7 @@ int main(int argc, const char *argv[]) {
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
 
 	// Wait to start recording if Push to Start is enabled
-	if(PUSHTOSTART){
+	if(button_start){
 		cout << "Push  button to begin." << endl;
 		int hold = 1;
 		int btn;
@@ -293,6 +292,7 @@ int main(int argc, const char *argv[]) {
 
   cout << "Actual sample rate: " << rated << endl;
 
+  // setup transmitter and timer threads
   struct TransmitArgs xbee_args;
   xbee_args.xbee_port = strdup(xbee_port.c_str());
   xbee_args.xbee_rate = xbee_rate; 
@@ -300,22 +300,18 @@ int main(int argc, const char *argv[]) {
   pthread_t timer_thread;
   pthread_create(&transmit_thread, NULL, transmit, &xbee_args);
   pthread_create(&timer_thread, NULL, wait_for_sig, NULL); 
-
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
   ts.tv_sec += (sample_time*60);
-
   pthread_timedjoin_np(timer_thread, NULL, &ts); // more efficient than checking the time in a loop
   pthread_cancel(timer_thread);
-
   stop_transmitting = true;
   pthread_join(transmit_thread, NULL);
-  // TODO: also capture interrupt signal and do these there.
+
   // wrap up daq
   ulAInScanStop(deviceHandle);
   ulDisableEvent(deviceHandle, scan_event);
   ulDisconnectDaqDevice(deviceHandle);
-  sleep(5);
   fflush(DAQFile);
 	fclose(DAQFile);
 

@@ -5,10 +5,13 @@
 #include <sys/stat.h>
 // Include this header file to get access to VectorNav sensors.
 #include "vn/sensors.h"
+#include "vn/compositedata.h"
+#include "vn/util.h"
 // We need this file for our sleep function.
 #include "vn/thread.h"
 
-#define PACKETSIZE 110
+#define NAMEMAX 100
+#define HEADERSIZE 10
 
 using namespace std;
 using namespace vn::math;
@@ -16,7 +19,7 @@ using namespace vn::sensors;
 using namespace vn::protocol::uart;
 using namespace vn::xplat;
 
-char outFileStr[] = "VECTORNAVASCII00.CSV";
+char outFileStr[] = "%s/VECTORNAVASCII%d.CSV";
 
 
 // Calculates the 16-bit CRC for the given ASCII or binary message.
@@ -34,21 +37,31 @@ unsigned short calculateCRC(unsigned char data[], unsigned int length)
 	return crc;
 }
 
+char * outFileNameConvert( char * inFileName){
+	size_t length = strlen(inFileName);
+	char * outFileName = (char*)malloc((size_t)NAMEMAX);
+	strncpy(outFileName, inFileName, NAMEMAX);
+
+	//change RAW to CSV
+	outFileName[length-3] = 'C';
+	outFileName[length-2] = 'S';
+	outFileName[length-1] = 'V';
+
+	return outFileName;
+}
+
 
 int main(int argc, char *argv[])
 {
+  if (argc < 2) { 
+    perror("Please provide binary filepath");
+    exit(1);
+  }
+  char * outFileName = outFileNameConvert(argv[1]);
+
 	ofstream outFile;
-	for (int i = 0; i < 100; i++) {
-		outFileStr[14] = i / 10 + '0';
-		outFileStr[15] = i % 10 + '0';
-    struct stat statbuf;
-		if (stat(outFileStr, &statbuf) != 0) {//File doesn't already exist
-			break;
-		}
-	}
-	outFile.open(outFileStr);
-	outFile << "Time" << " , " << "Yaw Pitch Roll" << ", " << "Yaw Pitch Roll Uncertainties" << " , " << "Yaw Pitch Roll Velocity" << " , " << "Latitude Longitude Altitude" << " , " << "Position Uncertainty" << " , " << "Velocity" << " , " << "Velocity Uncertainty" << " , " << "INS Status" << " , " << "Temperature" << " , " << "Pressure" << endl;
-	//outFile.close();
+	outFile.open(outFileName);
+	//outFile << "Time" << " , " << "Yaw Pitch Roll" << ", " << "Yaw Pitch Roll Uncertainties" << " , " << "Yaw Pitch Roll Velocity" << " , " << "Latitude Longitude Altitude" << " , " << "Position Uncertainty" << " , " << "Velocity" << " , " << "Velocity Uncertainty" << " , " << "INS Status" << " , " << "Temperature" << " , " << "Pressure" << endl;
 
 	FILE* inputFile = fopen(argv[1], "rb+");
 	if (inputFile == NULL) {
@@ -57,39 +70,119 @@ int main(int argc, char *argv[])
 	int fileDesc = fileno(inputFile);
 	int fileSize = lseek(fileDesc, 0, SEEK_END); // Find filesize
 	lseek(fileDesc, 0, SEEK_SET); //Reset to the beginning
-	char buffer[PACKETSIZE];
-	int numRead = read(fileDesc, buffer, PACKETSIZE);
+
+  // read header to get the packet size
+	char head_buffer[HEADERSIZE];
+	int numRead = read(fileDesc, head_buffer, HEADERSIZE);
 	if (numRead == -1) {
 		perror("Can't read first packet: ");
 	}
 	std::cout << "Extraction in progress, please do not quit the program." << endl;
 	int count = 0;
 	int countCorrupt = 0;
-	while (numRead == PACKETSIZE) {
-		Packet p(buffer, PACKETSIZE);
-		unsigned char check[PACKETSIZE - 1];
-		memcpy(check, &buffer[1], PACKETSIZE - 1);
-		if (calculateCRC(check, PACKETSIZE - 1) == 0) {
-		//if((byte)buffer[0] == 0xFA){
-			uint64_t time = p.extractUint64();
-			vec3f ypr = p.extractVec3f();
-			vec3f yprV = p.extractVec3f();
-			vec3d lla = p.extractVec3d();
-			vec3f vel = p.extractVec3f();
-			uint16_t insStatus = p.extractUint16();
-			float temp = p.extractFloat();
-			float pres = p.extractFloat();
-			vec3f yprU = p.extractVec3f();
-			float posU = p.extractFloat();
-			float velU = p.extractFloat();
-
-			insStatus = insStatus & (0x0003); // We really only care about the first 2 bits here (INS Filter Mode)
-
-			outFile.precision(17);
-			// add << fixed before lla or change vector.h
-			outFile << time << " , " << ypr << ", " << yprU << " , " << yprV << " , "<< fixed << lla << " , " << posU << " , " << vel << ", " << velU << " , " << insStatus << " , " << temp << " , " << pres << endl;
-			//outFile.close();
-			//cout << "Successfully read packet: " << numRead << " bytes" << endl;
+  size_t pack_size = Packet::computeBinaryPacketLength(head_buffer);
+  cout << "packet true size" << pack_size << endl;
+  char buffer[pack_size];
+  numRead = read(fileDesc, buffer, pack_size - HEADERSIZE); // cleanup after first header read
+  numRead = read(fileDesc, buffer, pack_size); // read first packet
+  bool header = true;
+	while (numRead == pack_size) {
+		Packet p(buffer, pack_size);
+		unsigned char check[pack_size - 1];
+		memcpy(check, &buffer[1], pack_size - 1);
+		if (calculateCRC(check, pack_size - 1) == 0) {
+      // TODO: make parsing the packet its own function
+      // TODO: some kind of execution mapping would make this cleaner
+      CompositeData cd = CompositeData::parse(p);
+      if (header) { 
+        if (cd.hasTimeUtc()) {
+          outFile << "UTC time" << "," ;
+        }
+        if (cd.hasTimeGps()) {
+          outFile << "GPS time" << ",";
+        }
+        if (cd.hasYawPitchRoll()) {
+          outFile << "YPR" << ",";
+          if (cd.hasAttitudeUncertainty()) {
+            outFile << "YPR Uncertainty" << ",";
+          }
+        }
+        if (cd.hasAngularRate()) {
+          outFile << "Angular Rate (YPRV)" << ",";
+        }
+        if (cd.hasAcceleration()) {
+          outFile << "Acceleration" << ",";
+        }
+        if (cd.hasMagnetic()) {
+          outFile << "Magnetic" << ",";
+        }
+        if (cd.hasPositionGpsLla()) {
+          outFile << "GPS LLA" << ",";
+        }
+        if (cd.hasPressure()) { 
+          outFile << "Pressure" << ",";
+        }
+        if (cd.hasInsStatus()){
+          outFile << "InsStatus" << ",";
+        }
+        if (cd.hasTemperature()) {
+          outFile << "Temperature (C)";
+        }
+        outFile << endl;
+        header = false;
+      }
+      if (cd.hasTimeUtc()) {
+        TimeUtc utc_time = cd.timeUtc();
+        outFile << 
+          utc_time.year << ":" << 
+          utc_time.month << ":" << 
+          utc_time.day << ":" << 
+          utc_time.hour << ":" << 
+          utc_time.min << ":" << 
+          utc_time.sec << ":" << 
+          utc_time.ms << ",";
+      }
+      if (cd.hasTimeGps()) {
+        uint64_t gps_time = cd.timeGps();
+        outFile << gps_time << ",";
+      }
+      if (cd.hasYawPitchRoll()) {
+        vec3f ypr = cd.yawPitchRoll();
+        outFile << ypr << ",";
+        if (cd.hasAttitudeUncertainty()) {
+          vec3f yprU = cd.attitudeUncertainty();
+          outFile << yprU << ",";
+        }
+      }
+      if (cd.hasAngularRate()) {
+        vec3f ar = cd.angularRate();
+        outFile << ar << ",";
+      }
+      if (cd.hasAcceleration()) {
+        vec3f ac = cd.acceleration();
+        outFile << ac << ",";
+      }
+      if (cd.hasMagnetic()) {
+        vec3f mag = cd.magnetic();
+        outFile << mag << ",";
+      }
+      if (cd.hasPositionGpsLla()) {
+        vec3d lla = cd.positionEstimatedLla();
+        outFile << lla << ",";
+      }
+      if (cd.hasPressure()) { 
+        float pres = cd.pressure();
+        outFile << pres << ",";
+      }
+      if (cd.hasInsStatus()){
+        InsStatus stat = cd.insStatus();
+        outFile << stat << ",";
+      }
+      if (cd.hasTemperature()) {
+        float temp = cd.temperature();
+        outFile << temp;
+      }
+      outFile << endl;
 		}
 		else {
 			std::cout << "Packet Corrupted" << endl;
@@ -109,7 +202,7 @@ int main(int argc, char *argv[])
 			countCorrupt++;
 		}
 
-		numRead = read(fileDesc, buffer, PACKETSIZE);
+		numRead = read(fileDesc, buffer, pack_size);
 		if (numRead == -1) {
 			perror("Can't load next packet: ");
 		}

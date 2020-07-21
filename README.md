@@ -98,6 +98,6 @@ This may work with similar models, but has not been tested with anything but the
  - [MCC Universal Library for Linux C/C++ Documentation](https://www.mccdaq.com/PDFs/Manuals/UL-Linux/c/index.html)
 
 ## TODOs
-* Time synchronization currently does not work as intended, the DAQ should be the master and VN the slave, however SYNC_IN is not responsive on the VN300 so far. 
-* DAQ sampling should happen asynchronously from the main program.
-* The binary packets from both the VN and DAQ need to be periodically sent via serial to an XBEE radio. This should run as a seperate thread.
+* Time synchronization between DAQ and VN should be more heavily tested and improved. We are seeing slight time drift between the amount of samples each device are taking although it is very little (worst has been 12ms drift at 20kHz DAQ and 200Hz VN). 
+* Clean up how extract.cpp parses vn packets
+* rename exctract.cpp 

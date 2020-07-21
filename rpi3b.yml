@@ -1,8 +1,9 @@
-sample_duration: 20
+sample_duration: 1
 output_dir: "/home/pi/logs"
+button_start: true
 vectornav:
   baud: 230400
-  port: "/dev/ttyUSB1"
+  port: "/dev/ttyUSB0"
   rate: 200
 daq: 
   v_range: 5
