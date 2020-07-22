@@ -20,6 +20,8 @@
 // Include this header file to get access to VectorNav sensors.
 #include "vn/sensors.h"
 #include "vn/thread.h"
+#include "vn/packet.h"
+#include "vn/types.h"
 
 #include "yaml-cpp/yaml.h"
 
@@ -27,8 +29,6 @@
 #define MAX_STR_LENGTH 64
 #define MAX_SCAN_OPTIONS_LENGTH 256
 #define ERRSTRLEN 256
-// TODO: compute packet size dynamically so that we can change the message params
-#define PACKETSIZE 110
 #define DAQSIZE 64
 #define BUFFERSIZE 16 
 // Used for WiringPi numbering scheme. See the full list with `$ gpio readall`
@@ -43,6 +43,12 @@ using namespace vn::sensors;
 using namespace vn::protocol::uart;
 using namespace vn::xplat;
 
+CommonGroup COMMON_MASK = COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS; // Note use of binary OR to configure flags.
+TimeGroup TIME_MASK = TIMEGROUP_TIMEUTC;
+ImuGroup IMU_MASK = IMUGROUP_TEMP | IMUGROUP_PRES;
+GpsGroup GPS_MASK = GPSGROUP_POSLLA; 
+AttitudeGroup ATT_MASK = ATTITUDEGROUP_YPRU;
+InsGroup INS_MASK = INSGROUP_POSU | INSGROUP_VELU;
 
 struct ScanEventParameters
 {
@@ -71,11 +77,12 @@ void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, uns
 void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index);
 
 ofstream vecFile;
+size_t bor_size = 4; // header (start byte, group mask byte) + crc (2 bytes) 
 
 unsigned long past_scan = 0; 
 FILE* DAQFile;
 
-char current_vec_bin[PACKETSIZE];
+char current_vec_bin[bor_size]; // TODO: this wont work because we need bor_size after the fact. NOTE: we can probably pass this in UserData and not need it in the global scope allowing for local alloc
 stringstream current_daq_bin;
 bool stop_transmitting = false;
 
@@ -225,12 +232,27 @@ int main(int argc, const char *argv[]) {
 	BinaryOutputRegister bor(
 		ASYNCMODE_PORT1,
     0,
-		COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS, // Note use of binary OR to configure flags.
-		TIMEGROUP_TIMEUTC,
-		IMUGROUP_TEMP | IMUGROUP_PRES,
-		GPSGROUP_POSLLA,
-		ATTITUDEGROUP_YPRU,
-		INSGROUP_POSU | INSGROUP_VELU);
+		COMMON_MASK,
+		TIME_MASK, 
+		IMU_MASK,
+		GPS_MASK,
+		ATT_MASK,
+		INS_MASK
+  );
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_COMMON, COMMON_MASK);
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_TIME, TIME_MASK);
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_IMU, IMU_MASK);
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_GPS, GPS_MASK);
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_ATTITUDE, ATT_MASK);
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_INS, INS_MASK);
+
+  // vectornav circular buffer designed to hold 30 seconds of byte data
+  // each column is a byte in a packet, each row is a new packet
+  uint16_t vec_buff_size = 30*vec_rate;
+  char vec_cbuff[bor_size][vec_buff_size]; 
+  uint16_t vec_current_index = 0; // where the current data is getting put by the handler
+  uint16_t vec_start_index = 0; // the start point of the data since the last write. 
+
   // overwrites test output
 	vs.writeBinaryOutput1(bor);
 
@@ -464,19 +486,28 @@ void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index)
 		// First make sure we have a binary packet type we expect since there
 		// are many types of binary output types that can be configured.
 		if (!p.isCompatible(
-				COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS, // Note use of binary OR to configure flags.
-        TIMEGROUP_TIMEUTC,
-        IMUGROUP_TEMP | IMUGROUP_PRES,
-        GPSGROUP_POSLLA,
-        ATTITUDEGROUP_YPRU,
-        INSGROUP_POSU | INSGROUP_VELU))
+        COMMON_MASK, 
+        TIME_MASK, 
+        IMU_MASK, 
+        GPS_MASK,
+        ATT_MASK, 
+        INS_MASK
+      )
+    )
 			// Not the type of binary packet we are expecting.
 			return;
-    // TODO: calculate this once, it should be the same and strlen is a heavy function
     const char * p_cstr = p_str.c_str();
     size_t pack_size = p_str.length();
-		vecFile.write(p_cstr, pack_size);
-    // memcpy(current_vec_bin, p_cstr, pack_size); // # TODO dynamically allocate current_vec_bin
+    if (pack_size != bor_size){ 
+      cout << "packet discrepency: " << bor_size << " ; " << pack_size << endl; 
+    }
+    /*
+     * get current pointer to the circular buffer
+     * increment current_pointer, if the pointer is overflowed, set pointer to 0
+     * insert p_cstr into the buffer
+     */
+		vecFile.write(p_cstr, bor_size);
+    // memcpy(current_vec_bin, p_cstr, pack_size);
 	}
 }
 
