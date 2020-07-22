@@ -82,7 +82,8 @@ size_t bor_size = 4; // header (start byte, group mask byte) + crc (2 bytes)
 unsigned long past_scan = 0; 
 FILE* DAQFile;
 
-char current_vec_bin[bor_size]; // TODO: this wont work because we need bor_size after the fact. NOTE: we can probably pass this in UserData and not need it in the global scope allowing for local alloc
+// char current_vec_bin[bor_size]; // TODO: this wont work because we need bor_size after the fact. NOTE: we can probably pass this in UserData and not need it in the global scope allowing for local alloc
+char* current_vec_bin;
 stringstream current_daq_bin;
 bool stop_transmitting = false;
 
@@ -570,7 +571,7 @@ void * transmit(void * ptr){
     return NULL;
   }
   while(!stop_transmitting) { 
-    for(int i=0; i < PACKETSIZE; i++){
+    for(size_t i=0; i < bor_size; i++){
       serialPutchar(fd, current_vec_bin[i]);
     }
     serialPuts(fd, current_daq_bin.str().c_str());
