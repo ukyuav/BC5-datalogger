@@ -43,7 +43,7 @@ using namespace vn::sensors;
 using namespace vn::protocol::uart;
 using namespace vn::xplat;
 
-CommonGroup COMMON_MASK = COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS; // Note use of binary OR to configure flags.
+CommonGroup COMMON_MASK = COMMONGROUP_TIMEGPS | COMMONGROUP_YAWPITCHROLL | COMMONGROUP_ANGULARRATE | COMMONGROUP_POSITION | COMMONGROUP_VELOCITY | COMMONGROUP_INSSTATUS | COMMONGROUP_SYNCINCNT; // Note use of binary OR to configure flags.
 TimeGroup TIME_MASK = TIMEGROUP_TIMEUTC;
 ImuGroup IMU_MASK = IMUGROUP_TEMP | IMUGROUP_PRES;
 GpsGroup GPS_MASK = GPSGROUP_POSLLA; 
@@ -75,9 +75,11 @@ int handleError(UlError detectError, const string info);
 void connectVs(VnSensor &vs, string vec_port, int baudrate);
 void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, unsigned long long eventData, void* userData);
 void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index);
+void* vec_write(void* vp);
 
-ofstream vecFile;
+FILE* vecFile;
 size_t bor_size = 4; // header (start byte, group mask byte) + crc (2 bytes) 
+bool first_sample = false;
 
 unsigned long past_scan = 0; 
 FILE* DAQFile;
@@ -85,7 +87,16 @@ FILE* DAQFile;
 // char current_vec_bin[bor_size]; // TODO: this wont work because we need bor_size after the fact. NOTE: we can probably pass this in UserData and not need it in the global scope allowing for local alloc
 char* current_vec_bin;
 stringstream current_daq_bin;
-bool stop_transmitting = false;
+volatile bool stop_sampling = false;
+
+pthread_mutex_t halfone = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t halftwo = PTHREAD_MUTEX_INITIALIZER;
+size_t vbuff_ind = 0;
+
+#define VNMAX 400
+#define BUFFTIME 2
+const uint16_t vec_buff_size=VNMAX*BUFFTIME;
+char* vec_cbuff[vec_buff_size];
 
 int main(int argc, const char *argv[]) {
 	wiringPiSetup();
@@ -103,6 +114,7 @@ int main(int argc, const char *argv[]) {
   string xbee_port; 
   string output_dir; 
   bool button_start;
+  int min_gps_fix = 0;
 
   if (argc == 2) {
     YAML::Node config = YAML::LoadFile(argv[1]);
@@ -126,6 +138,8 @@ int main(int argc, const char *argv[]) {
     YAML::Node xbee_config = config["xbee"];
     xbee_rate = xbee_config["rate"].as<int>();
     xbee_port = xbee_config["port"].as<string>();
+
+    min_gps_fix = config["gps_fix"].as<int>();
 
   } else { 
     cerr << "No config file provided. Exiting" << endl;
@@ -215,8 +229,32 @@ int main(int argc, const char *argv[]) {
 	string mn = vs.readModelNumber();
 	cout << "VectorNav connected. Model Number: " << mn << endl;
 	
-	vecFile.open(vec_file_str, std::ofstream::binary | std::ofstream::app);
+  vecFile = fopen(vec_file_str, "wb+");
 
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_COMMON, COMMON_MASK);
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_TIME, TIME_MASK);
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_IMU, IMU_MASK);
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_GPS, GPS_MASK);
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_ATTITUDE, ATT_MASK);
+  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_INS, INS_MASK);
+
+  for (int i=0; i < vec_buff_size; i++) {
+    vec_cbuff[i] = new char[bor_size];
+  }
+
+  GpsConfigurationRegister gcr = vs.readGpsConfiguration();
+  cout << "GCR: " << gcr.mode << endl; 
+  cout << "Awaiting GPS fix" << endl;
+  int gps_fix = 0;
+  while(min_gps_fix > gps_fix) { 
+    GpsSolutionLlaRegister gslr = vs.readGpsSolutionLla();
+    gps_fix = gslr.gpsFix;
+    cout << gps_fix << endl;
+    sleep(1);
+  }
+
+  pthread_t vn_write_thread;
+  pthread_create(&vn_write_thread, NULL, vec_write, NULL);
 	vs.registerAsyncPacketReceivedHandler(NULL, vecnavBinaryEventHandle);
 	AsciiAsync asciiAsync = (AsciiAsync) 0;
 	vs.writeAsyncDataOutputType(asciiAsync); // Turns on Binary Message Type
@@ -240,19 +278,6 @@ int main(int argc, const char *argv[]) {
 		ATT_MASK,
 		INS_MASK
   );
-  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_COMMON, COMMON_MASK);
-  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_TIME, TIME_MASK);
-  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_IMU, IMU_MASK);
-  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_GPS, GPS_MASK);
-  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_ATTITUDE, ATT_MASK);
-  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_INS, INS_MASK);
-
-  // vectornav circular buffer designed to hold 30 seconds of byte data
-  // each column is a byte in a packet, each row is a new packet
-  uint16_t vec_buff_size = 30*vec_rate;
-  char vec_cbuff[bor_size][vec_buff_size]; 
-  uint16_t vec_current_index = 0; // where the current data is getting put by the handler
-  uint16_t vec_start_index = 0; // the start point of the data since the last write. 
 
   // overwrites test output
 	vs.writeBinaryOutput1(bor);
@@ -336,22 +361,26 @@ int main(int argc, const char *argv[]) {
   ts.tv_sec += (sample_time*60);
   pthread_timedjoin_np(timer_thread, NULL, &ts); // more efficient than checking the time in a loop
   pthread_cancel(timer_thread);
-  stop_transmitting = true;
+  cout << "enter pressed, should be wrapping up" << endl;
+  stop_sampling = true; // this kills transmission and file writing threads.
   pthread_join(transmit_thread, NULL);
+  pthread_join(vn_write_thread, NULL);
   
   // wrap up daq
   ulAInScanStop(deviceHandle);
   ulDisableEvent(deviceHandle, scan_event);
   ulDisconnectDaqDevice(deviceHandle);
+  sleep(1);
   fflush(DAQFile);
 	fclose(DAQFile);
   
   // wrap up vecnav
 	vs.unregisterAsyncPacketReceivedHandler();
 	vs.disconnect();
-	vecFile.close();
+  fflush(vecFile);
+	fclose(vecFile);
 
-	cout << "Sampling completed." << endl;
+	cout << "Sampling completed." << vbuff_ind << endl;
 }
 
 
@@ -478,7 +507,7 @@ void connectVs(VnSensor &vs, string vec_port, int baudrate) {
   }
 }
 
-void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index)
+void vecnavBinaryEventHandle(void *userData, Packet& p, size_t index)
 {
   // 	The following line and the vecFile.close() command at the bottom of this function are not recommended when the sync mount option is set for the filesystem
 	if (p.type() == Packet::TYPE_BINARY)
@@ -507,11 +536,42 @@ void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index)
      * increment current_pointer, if the pointer is overflowed, set pointer to 0
      * insert p_cstr into the buffer
      */
-		vecFile.write(p_cstr, bor_size);
-    // memcpy(current_vec_bin, p_cstr, pack_size);
+    if(vbuff_ind  == (vec_buff_size/2)) {  // in the second half of the buffer
+      pthread_mutex_unlock(&halfone);
+      pthread_mutex_lock(&halftwo);
+    } else if (vbuff_ind == 0) { 
+      pthread_mutex_unlock(&halftwo);
+      pthread_mutex_lock(&halfone);
+    }
+    memcpy(vec_cbuff[vbuff_ind], p_cstr, bor_size);
+    if(++vbuff_ind >= vec_buff_size) { 
+      vbuff_ind = 0;
+    }
+    first_sample = true;
 	}
 }
 
+/* writes out available portions of the vectornav data buffer */
+void* vec_write(void* vp){ 
+  while(!first_sample) {
+    sleep(0.1);
+  }
+  while(!stop_sampling){ 
+    pthread_mutex_lock(&halfone); 
+    for(int i=0; i<(vec_buff_size)/2;i++){
+      fwrite(vec_cbuff[i], sizeof(char)*bor_size, 1, vecFile);
+    }
+    fflush(vecFile);
+    pthread_mutex_unlock(&halfone);
+    pthread_mutex_lock(&halftwo); 
+    for(int i=0; i<(vec_buff_size)/2;i++){
+      fwrite(vec_cbuff[vec_buff_size/2+i], sizeof(char)*bor_size, 1, vecFile);
+    }
+    fflush(vecFile);
+    pthread_mutex_unlock(&halftwo);
+  }
+  return NULL;
+}
 
 void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, unsigned long long eventData, void* userData) {
 
@@ -570,7 +630,7 @@ void * transmit(void * ptr){
     cerr << "Could not connect to Xbee" << endl; 
     return NULL;
   }
-  while(!stop_transmitting) { 
+  while(!stop_sampling) { 
     for(size_t i=0; i < bor_size; i++){
       serialPutchar(fd, current_vec_bin[i]);
     }

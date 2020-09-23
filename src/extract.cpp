@@ -122,6 +122,9 @@ int main(int argc, char *argv[])
         if (cd.hasPressure()) { 
           outFile << "Pressure" << ",";
         }
+        if (cd.hasSyncInCnt()){
+          outFile << "SyncIn Count" << ",";
+        }
         if (cd.hasInsStatus()){
           outFile << "InsStatus" << ",";
         }
@@ -173,6 +176,10 @@ int main(int argc, char *argv[])
       if (cd.hasPressure()) { 
         float pres = cd.pressure();
         outFile << pres << ",";
+      }
+      if (cd.hasSyncInCnt()){
+        uint32_t cnt = cd.syncInCnt();
+        outFile << cnt << ",";
       }
       if (cd.hasInsStatus()){
         InsStatus stat = cd.insStatus();

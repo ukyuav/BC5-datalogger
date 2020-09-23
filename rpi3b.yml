@@ -1,6 +1,7 @@
 sample_duration: 100
 output_dir:  "/media/usb" # WARNING: only use /media/usb if you have mounted a USB drive there. "/home/pi/logs"
 button_start: true
+gps_fix: 3 # 3 is LLA (3D)
 vectornav:
   baud: 460800 # if you are having sync problems, bump the baudrate.
   port: "/dev/ttyUSB0"
