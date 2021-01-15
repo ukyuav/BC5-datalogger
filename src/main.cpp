@@ -1,9 +1,6 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <iostream>
-#include <fstream>
 #include <sstream>
+#include <fstream>
 #include <filesystem>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -32,10 +29,12 @@
 #define DAQSIZE 64
 #define BUFFERSIZE 16 
 // Used for WiringPi numbering scheme. See the full list with `$ gpio readall`
-#define GPIO2 8 
+#define GPIO27 2 // GPIO27
 
 //Allows for data recording to be started by a pushbutton connected to GPIO pins
 //Set to zero to disable
+
+const char* FIFOFILE = "/home/pi/BC5-datalogger-master/bc6-printlog";
 
 using namespace std;
 using namespace vn::math;
@@ -65,7 +64,7 @@ struct TransmitArgs {
 };
 
 // Method declarations for future use.
-void * transmit(void * ptr);
+void* transmit(void * ptr);
 void* wait_for_sig(void*);
 void* wait_for_but(void*);
 Range getGain(int vRange);
@@ -99,8 +98,9 @@ const uint16_t vec_buff_size=VNMAX*BUFFTIME;
 char* vec_cbuff[vec_buff_size];
 
 int main(int argc, const char *argv[]) {
-	wiringPiSetup();
-  pinMode(GPIO2, INPUT);
+  wiringPiSetup();
+  pinMode(GPIO27, INPUT);
+  pullUpDnControl(GPIO27, PUD_DOWN);
 
   // Use YAML to set configuration variables.
   int vec_baud;
@@ -135,21 +135,33 @@ int main(int argc, const char *argv[]) {
     num_chan = daq_config["chan_num"].as<int>(); 
     daq_rate = daq_config["rate"].as<int>();
 
+    // xbee config
     YAML::Node xbee_config = config["xbee"];
     xbee_rate = xbee_config["rate"].as<int>();
     xbee_port = xbee_config["port"].as<string>();
 
+    // gps config
     min_gps_fix = config["gps_fix"].as<int>();
-
   } else { 
     cerr << "No config file provided. Exiting" << endl;
     exit(1);
   }
 
+  std::ofstream fifo;
+  fifo.open(FIFOFILE, ios::out);
+  if(! fifo.is_open() ){
+    std::cout << " error : cannot open fifo file " << std :: endl; 
+    return 1;
+  }
+  fifo.close();
+
   // acquire filenames 
   int config_num = getConfigNumber(output_dir);
   if (config_num < 0) { 
     cerr << "Output directory will not work for sampling." << endl;
+    fifo.open(FIFOFILE, ios::out);
+    fifo << "Output directory will not work for sampling." << endl;
+    fifo.close();
     exit(1);
   }
   cout << "This is config run: " << config_num << endl; 
@@ -169,15 +181,24 @@ int main(int argc, const char *argv[]) {
 	// Verify values are acceptable
 	if (daq_rate > 100000) {
 		cerr << "Individual channel sample rate cannot exceed 100kHz, acquisition will fail\n" << endl;
+    fifo.open(FIFOFILE, ios::out);
+		fifo << "Individual channel sample rate cannot exceed 100kHz, acquisition will fail\n" << endl;
+		fifo.close();
 		return -1;
 	}
 
 	if (daq_rate*num_chan > 400000) {
 		cerr << "Aggregate sample rate exceeds 400kHz, acquisition will fail\n" << endl;
+                fifo.open(FIFOFILE, ios::out);
+		fifo << "Aggregate sample rate exceeds 400kHz, acquisition will fail\n" << endl;
+		fifo.close();
 		return -1;
 	}
 	if ((volt_range != 1) && (volt_range != 2) && (volt_range != 5) && (volt_range != 10)) {
 		cerr << "Invalid range for voltage gain. Must be 1, 2, 5 or 10.\n" << endl;
+                fifo.open(FIFOFILE, ios::out);
+		fifo << "Invalid range for voltage gain. Must be 1, 2, 5 or 10.\n" << endl;
+		fifo.close();
 		return -1;
 	}
   if (vec_rate > daq_rate) { 
@@ -195,12 +216,16 @@ int main(int argc, const char *argv[]) {
 	// Acquire device(s)
 	detectError = ulGetDaqDeviceInventory(interfaceType, devDescriptors, &numDevs);
 	if(handleError(detectError, "Cannot acquire device inventory\n")){
+		fifo.close();
 		return -1;
 	}
 
 	// verify at least one DAQ device is detected
 	if (numDevs == 0) {
 		cerr << "No DAQ device is detected\n" << endl;
+		fifo.open(FIFOFILE, ios::out);
+		fifo << "No DAQ device is detected\n" << endl;
+		fifo.close();
 		return -1;
 	}
 
@@ -238,6 +263,8 @@ int main(int argc, const char *argv[]) {
   bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_ATTITUDE, ATT_MASK);
   bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_INS, INS_MASK);
 
+  cout << "VectorNav Binary Output Register Size: " << bor_size;
+
   for (int i=0; i < vec_buff_size; i++) {
     vec_cbuff[i] = new char[bor_size];
   }
@@ -245,6 +272,9 @@ int main(int argc, const char *argv[]) {
   GpsConfigurationRegister gcr = vs.readGpsConfiguration();
   cout << "GCR: " << gcr.mode << endl; 
   cout << "Awaiting GPS fix" << endl;
+  fifo.open(FIFOFILE, ios::out);
+  fifo << "Awaiting GPS fix: " << min_gps_fix << endl; 
+  fifo.close();
   int gps_fix = 0;
   while(min_gps_fix > gps_fix) { 
     GpsSolutionLlaRegister gslr = vs.readGpsSolutionLla();
@@ -252,6 +282,10 @@ int main(int argc, const char *argv[]) {
     cout << gps_fix << endl;
     sleep(1);
   }
+  sleep(1);
+  fifo.open(FIFOFILE, ios::out);
+  fifo << "GPS Acquired." << endl; 
+  fifo.close();
 
   pthread_t vn_write_thread;
   pthread_create(&vn_write_thread, NULL, vec_write, NULL);
@@ -301,18 +335,23 @@ int main(int argc, const char *argv[]) {
 	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_CONTINUOUS | SO_PACEROUT);
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
 
+	sleep(1);
 	// Wait to start recording if Push to Start is enabled
 	if(button_start){
 		cout << "Push  button to begin." << endl;
+		fifo.open(FIFOFILE, ios::out);
+		fifo << "Push  button to begin." << endl;
+		fifo.close();
 		int hold = 1;
 		int btn;
 		while(hold ==1){
-			btn = digitalRead(GPIO2);
-			if (btn == LOW){
+			btn = digitalRead(GPIO27);
+			if (btn == HIGH){
 				hold = 0;
 			}
 		}
 	}
+	cout << "Started sampling" << endl;
 
 
   // setup scan event for the DAQ
@@ -372,15 +411,19 @@ int main(int argc, const char *argv[]) {
   ulDisconnectDaqDevice(deviceHandle);
   sleep(1);
   fflush(DAQFile);
-	fclose(DAQFile);
+  fclose(DAQFile);
   
   // wrap up vecnav
-	vs.unregisterAsyncPacketReceivedHandler();
-	vs.disconnect();
+  vs.unregisterAsyncPacketReceivedHandler();
+  vs.disconnect();
   fflush(vecFile);
-	fclose(vecFile);
+  fclose(vecFile);
 
-	cout << "Sampling completed." << vbuff_ind << endl;
+	cout << "Sampling completed." << endl;
+	sleep(1);
+	fifo.open(FIFOFILE, ios::out);
+	fifo << "Sampling completed." << endl;
+	fifo.close();
 }
 
 
@@ -537,11 +580,11 @@ void vecnavBinaryEventHandle(void *userData, Packet& p, size_t index)
      * insert p_cstr into the buffer
      */
     if(vbuff_ind  == (vec_buff_size/2)) {  // in the second half of the buffer
-      pthread_mutex_unlock(&halfone);
       pthread_mutex_lock(&halftwo);
-    } else if (vbuff_ind == 0) { 
-      pthread_mutex_unlock(&halftwo);
+      pthread_mutex_unlock(&halfone);
+    } else if (vbuff_ind == 0) { // in the first half of the buffer
       pthread_mutex_lock(&halfone);
+      pthread_mutex_unlock(&halftwo);
     }
     memcpy(vec_cbuff[vbuff_ind], p_cstr, bor_size);
     if(++vbuff_ind >= vec_buff_size) { 
@@ -559,6 +602,7 @@ void* vec_write(void* vp){
   while(!stop_sampling){ 
     pthread_mutex_lock(&halfone); 
     for(int i=0; i<(vec_buff_size)/2;i++){
+      // write one of the binary ouputs of the vec_cbuff
       fwrite(vec_cbuff[i], sizeof(char)*bor_size, 1, vecFile);
     }
     fflush(vecFile);
@@ -647,8 +691,8 @@ void* wait_for_but(void*){
   int hold = 1;
   int btn;
   while(hold ==1){
-    btn = digitalRead(GPIO2);
-    if (btn == LOW){
+    btn = digitalRead(GPIO27);
+    if (btn == HIGH){
       hold = 0;
     }
   }
