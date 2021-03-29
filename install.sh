@@ -3,6 +3,7 @@ sudo apt-get update -y
 sudo apt-get upgrade -y 
 # install prerequisite libraries
 sudo apt-get install -y python3 python3-pip python3-pil
+sudo apt-get install libopenjp2-7
 sudo pip3 install adafruit-circuitpython-ssd1306
 sudo pip3 install python-csv
 sudo pip3 install PyYAML
