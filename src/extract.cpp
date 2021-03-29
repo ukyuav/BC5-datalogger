@@ -113,11 +113,20 @@ int main(int argc, char *argv[])
         if (cd.hasAcceleration()) {
           outFile << "Acceleration" << ",";
         }
+        if (cd.hasAccelerationUncompensated()){
+          outFile << "Uncompensated Accel." << ",";
+        }
         if (cd.hasMagnetic()) {
           outFile << "Magnetic" << ",";
         }
         if (cd.hasPositionGpsLla()) {
           outFile << "GPS LLA" << ",";
+        }
+        if (cd.hasPositionEstimatedLla()) {
+          outFile << "Estimated LLA" << ",";
+        }
+        if (cd.hasVelocityEstimatedNed()) {
+          outFile << "Estimated Velocity NED" << ",";
         }
         if (cd.hasPressure()) { 
           outFile << "Pressure" << ",";
@@ -165,13 +174,25 @@ int main(int argc, char *argv[])
         vec3f ac = cd.acceleration();
         outFile << ac << ",";
       }
+      if (cd.hasAccelerationUncompensated()){
+        vec3f acu = cd.accelerationUncompensated();
+        outFile << acu << ",";
+      }
       if (cd.hasMagnetic()) {
         vec3f mag = cd.magnetic();
         outFile << mag << ",";
       }
       if (cd.hasPositionGpsLla()) {
-        vec3d lla = cd.positionEstimatedLla();
+        vec3d lla = cd.positionGpsLla();
         outFile << lla << ",";
+      }
+      if (cd.hasPositionEstimatedLla()){
+        vec3d estlla = cd.positionEstimatedLla();
+        outFile << estlla << ",";
+      }
+      if (cd.hasVelocityEstimatedNed()){
+        vec3f estv = cd.velocityEstimatedNed();
+        outFile << estv << ",";
       }
       if (cd.hasPressure()) { 
         float pres = cd.pressure();
