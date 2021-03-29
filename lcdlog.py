@@ -1,8 +1,11 @@
 import time
 import os
 import errno
-import Adafruit_GPIO.SPI as SPI
-import Adafruit_SSD1306
+#import Adafruit_GPIO.SPI as SPI
+#import Adafruit_SSD1306
+import board
+import busio
+import adafruit_ssd1306
 
 from PIL import Image
 from PIL import ImageDraw
@@ -15,13 +18,18 @@ RST = 24
 DC = 23
 SPI_PORT = 0
 SPI_DEVICE = 0
+ 
+# Use for I2C
+i2c = busio.I2C(board.SCL, board.SDA)
 
 # 128x32 display with hardware I2C:
-disp = Adafruit_SSD1306.SSD1306_128_32(rst=RST)
-
-disp.begin()
-disp.clear()
-disp.display()
+disp = adafruit_ssd1306.SSD1306_I2C(128, 32, i2c)
+#disp = adafruit_displayio_ssd1306.SSD1306(display_bus, width=128, height=32)
+#disp.begin()
+#disp.clear()
+#disp.display()
+disp.fill(0)
+disp.show()
 
 width = disp.width
 height = disp.height
@@ -59,12 +67,13 @@ while True:
             print("FIFO closed")
             continue
         print(f"Read line: {line}")
-        if index[1] >= bottom: # reset  the screen 
+        if index[1] >= bottom: # reset  the screen
+            index[1] = top 
             draw.rectangle((0,0,width,height), outline=0, fill=0)
-            draw.text((index[0], index[1]-40), last_line, font=font, fill=255)
-            index[1] -= 20
+            draw.text((index[0], index[1]), last_line, font=font, fill=255)
+            index[1] += 10
         draw.text((index[0], index[1]), line, font=font, fill=255)
-        index[1] += 20
+        index[1] += 10
         disp.image(canvas)
-        disp.display()
+        disp.show()
         last_line = line
