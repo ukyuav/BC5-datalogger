@@ -1,0 +1,16 @@
+sample_duration: 100
+output_dir:  "/media/sda1" # WARNING: only use /media/sda1 if you have mounted a USB drive there. "/home/pi/logs"
+output_dir_backup: "/home/pi/BC6B"
+button_start: false
+gps_fix: 0 # 3 is LLA (3D)
+vectornav:
+  baud: 460800 # if you are having sync problems, bump the baudrate.
+  port: "/dev/ttyUSB0"
+  rate: 200
+daq: 
+  v_range: 5
+  chan_num: 8
+  rate: 200
+xbee: 
+  rate: 1
+  port: "/dev/pts/3"

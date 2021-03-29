@@ -1,101 +1,91 @@
-# BC5-datalogger
+# BC6-datalogger
 Records data off of MCC DAQ and VectorNav INS
 
-### Table of contents
-- [Purpose](https://github.com/irowebbn/BC5-datalogger#purpose)
-- [Prerequisites](https://github.com/irowebbn/BC5-datalogger#prerequisites)
-- [Building](https://github.com/irowebbn/BC5-datalogger#building)
-- [Usage](https://github.com/irowebbn/BC5-datalogger#usage)
-- [Other notes](https://github.com/irowebbn/BC5-datalogger#other-notes)
-- [Important resources](https://github.com/irowebbn/BC5-datalogger#important-resources)
-
 ## Purpose
-Created for use on the BLUECAT V unmanned platform at the University of Kentucky.
-This was originally intended to run on a Raspberry Pi, but it should work on most Linux machines.
+Created for use on the BLUECAT VI (BC6) unmanned aerial platform at the University of Kentucky.
+This is intended for use of the Raspberry Pi 3b+. With some modification to the functionality of 
+the GPIO it could be used on other linux machines. It requires an I2C bus, 3.3V power, and GPIO 
+on the device to support all features.
 
 ## Prerequisites
 
 ### Hardware
+
 - [VectorNav VN-300](https://www.vectornav.com/products/vn-300)
 - [MCC USB-1608FS-Plus](https://www.mccdaq.com/usb-data-acquisition/USB-1608FS-Plus-Series)
+- [SSD1306 LCD](https://www.amazon.com/MakerFocus-Display-SSD1306-3-3V-5V-Arduino/dp/B0761LV1SD/ref=sr_1_4?dchild=1&keywords=SSD1306&qid=1608144476&sr=8-4)
 
 This may work with similar models, but has not been tested with anything but the above hardware.
 
 ### Software
+
+The following software is automatically included and built alongside the datalogger.
 - [VectorNav Programming Library v1.1](https://www.vectornav.com/support/downloads)
-    - v1.1.4 has also been tested
-    - Simply download, unzip, and run `make` to build library and example files.
-    ```sh
-        $ wget https://www.vectornav.com/docs/default-source/downloads/programming-library/vnproglib-1-1-4.zip
-        $ unzip vnproglib-1-1-4.zip
-        $ cd vnproglib-1-1-4/cpp
-        $ make
-    ```
- 
 - [MCC Universal Library for Linux (uldaq)](https://github.com/mccdaq/uldaq/)
-    - This requires [libusb](https://github.com/libusb/libusb)
-         - If you're on Ubuntu/Raspian, use `sudo apt-get install libusb-1.0-0-dev`. See the [uldaq README](https://github.com/mccdaq/uldaq/blob/master/README.md) for more installation options.
-    - Install uldaq using the following commands: 
-    ```sh
-        $ wget https://github.com/mccdaq/uldaq/releases/download/v1.0.0/libuldaq-1.0.0.tar.bz2
-        $ tar -xvjf libuldaq-1.0.0.tar.bz2
-        $ cd libuldaq-1.0.0
-        $ ./configure && make
-        $ sudo make install
-    ```
-    
- In order to support the symbolic link for the device, create a file in the `/etc/udev/rules.d/` directory with the following rule:
- ```
- SUBSYSTEM="tty",ATTRS{idProduct}=="6001",SYMLINK+="VN"
- ```
-    
- ## Building
- 
- 1. Clone this repository, then enter the directory that is created.
-    ```sh
-        git clone  https://github.com/irowebbn/BC5-datalogger.git
-    ```
- 2. Edit the `VNPATH` and `MCCPATH` macros at the top of the makefile to match the locations where you installed the VectorNav and MCC software on your machine.
- 3. Run `make`.
- 4. Run `./getData` to begin the program.
- 
- If the device already has the repository present, run `git pull` and `make` to update to update to the latest version.
- 
- ## Usage
- 
- 1. Before starting, create a config.txt file in the directory where you will be running the program
-    - Fill with the following fields as whole numbers, separated by a tab character: 
-         - DAQ Sample Rate (0 - 100000 hz)
-         - Number of channels to sample (aggregate sample rate cannot exceed 400 khz)
-         - Voltage Range (1, 2, 5, 10)
-         - Duration (in minutes)
- 2.    If you would like to start the recording by push button, change the `PUSHTOSTART` option in main.cpp to `1` and wire the GPIO pins as shown below. 
-     - <img src="https://github.com/irowebbn/BC5-datalogger/blob/master/GPIO-button.png" width = "400">
- 3. To ensure the two devices are synchronized, connect the SYNC_OUT pin of the VectorNav to the TRIG_IN terminal (pin 37) of the DAQ
- 4. Run `./getData` to begin.
- 5. Press enter to quit.
- 
- - There are either 3 files for each recording session:
-    - DATAXX.DAQ, where XX is some number between 00 and 99
-    This contains the raw binary data from the MCC DAQ. This can be interpreted as a series of double precision floats with each channel recorded from lowest channel number to highest on each sample.
-    - CONFIGDATAXX.txt, where XX corresponds with a DATAXX.daq file
-    This contains a record of the settings at which a particular DATAXX.daq session was run. It contains the rate, number of channels, voltage range, duration, and UTC time of when the session began. Each of these fields are separated by newlines.
-    - VECTORNAVDATAXX.CSV, where XX corresponds with a DATAXX.daq file
-    This contains the raw binary data from the VectorNav. It contains a series of 110 byte packets that can be read with the extract program, or the VectorNav Sensor Explorer
+- [Yaml CPP Parser/Emitter](https://github.com/jbeder/yaml-cpp)
 
-- If you build with the default target or run `make extract`, you can decode the binary packets recorded from the VectorNav device. Do this with `./extract VECTORNAVDATAXX.CSV`, which will create a file called VECTORNAVASCIIXX.CSV, which is human-readable. To add timestamps to the DAQ file, run `DAQ2CSV`. The command `./DAQ2CSV [DAQFILE].DAQ [VECTORNAVFILE].CSV [CONFIGFILE].txt` will convert a DAQ file a time stamped CSV file. It reads the config file to determine the sample rate and number of DAQ channels being sampled, reads the first timestamp from the VectorNav, then timestamps each DAQ sample using a calculated period. The corresponding timestamps are calculated using `[initTime]+[period]*[iterator]`, e.g., the 5th sample of a 200 Hz run will have timestamp of `[initTime] + .005 * 5` 
+All other required software is documented in the install.sh file. When launched this file will automatically 
+download all of the necessary software prerequisites for the features of the BC6. See the section below: 
+[Initial Setup](https://github.com/irowebbn/BC5-datalogger#important-resources) for installation information.
 
-## Other notes
-- In order to prevent data loss in the event of power failure, it is necessary to edit the `/etc/fstab` file on your machine and add the `sync` mount option to the main partition. This ensures that writes to the files are immediately saved to the disk.
-   
-```/dev/mncblk0p6    /    ext4    defaults,sync,noatime    0    1```
+## Scripts
 
-- You may want to have this program run when the Pi boots, you can achieve this by [editing the rc.local file](https://www.raspberrypi.org/documentation/linux/usage/rc-local.md)
+Below is a list of scripts and their functions
 
+* ./get_data.sh
+    - Runs the full datalogging software including logging from the vectornav and uldaq as well as printing to the LCD screen.
+* ./install.sh
+    - Script to run upon first installation. Should be ran while connected to the internet so that the script can install the required packages.
+* ./extract_all.sh
+    - After running "./get_data.sh", raw binary files will be produced in the output directory. "./extract_all.sh" takes a path and run number and converts those binaries toa csv.
  
+## Initial Setup
+
+### Software install and build
+For simplicity, all of the required software libraries are installed and built automatically by running the script: 
+```
+./install.sh
+```
+This will take some time and should only be done once.
+
+### Setting up to launch on bootup
+
+_TODO_
+
+The reboot script can be found by doing 'crontab -e' on the pre-existing BC6 implementations and copying that command to the other planes. 
+
+### Setting up USB drive
+
+A USB drive is advisable for high data-rate storage. This is a good place to write the raw data while logging.
+Additionally, the current launch script "./get_data.sh" looks for the configuration file in a USB drive mounted 
+to "/media/sda1".
+
+In order to accomplish this and be able to launch the script on bootup, we need to be able to auto-mount the USB drive. 
+This can be done by following a guide to editing the "/etc/fstab" file [here](https://www.linuxbabe.com/desktop-linux/how-to-automount-file-systems-on-linux).
+
+There are some custom changes that will need to be made that are slightly different from this guide. Your fstab line should look like this:
+
+```
+UUID=eb67c479-962f-4bcc-b3fe-cefaf908f01e  /media/sda1  vfat  defaults,nofail  0  2
+```
+
+## Full Launch Process
+
+1. Connect the BC6 system to power. The Raspberry Pi should then begin booting up.
+2. Wait 20 seconds
+3. If connected properly, the LCD should start displaying log messages from the datalogger. This will tell you the status of the logger.
+4. Potential LCD messages.
+    a. "Press button to begin logging.": The system is fully connected and is ready to begin logging upon button press.
+    b. "No DAQ device is detected": The DAQ device is not plugged in or is unresponsive.
+    c. "Awaiting GPS Fix": The Vectornav is still waiting on GPS signal to be acquired to gain the proper GPS fix. Await the fix or move to a more open area.
+    d. "Output directory will not work for sampling.": There are more than 99 log files in current directory and needs to be cleared or archived.
+    e. "Sampling completed.": The sampling has successfully completed and the program has terminated. Please await this message before shutting down the Pi to avoid corruption.
+    f. Other: There are various possible errors with the DAQ that often means invalid configuration. Consult the DAQ manual for permitted configurations.
+5. Once the LCD reads "Press button to begin logging." then you can press the button on the side of the plane labelled "Pi" and that will launch the datalogger program.
+6. Upon landing the plane, press the same button once more and await the message "Sampling completed." before shutting down.
+
  ## Important Resources
  - [VectorNav VN-300 User Manual](https://www.vectornav.com/docs/default-source/documentation/vn-300-documentation/vn-300-user-manual-(um005).pdf)
  - [MCC USB-1608FS-Plus User Manual](https://www.mccdaq.com/PDFs/manuals/USB-1608FS-Plus.pdf)
  - [VectorNav Programming Library (with documentation)](https://www.vectornav.com/docs/default-source/downloads/programming-library/vnproglib-1-1-4.zip?sfvrsn=fe678835_20)
  - [MCC Universal Library for Linux C/C++ Documentation](https://www.mccdaq.com/PDFs/Manuals/UL-Linux/c/index.html)
- 
