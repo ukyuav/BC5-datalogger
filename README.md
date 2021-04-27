@@ -72,6 +72,8 @@ Your fstab line should look like this, with a different UUID:
 ```
 UUID=eb67c479-962f-4bcc-b3fe-cefaf908f01e  /media/sda1  vfat  defaults,nofail  0  2
 ```
+Make sure the USB drive has the `rpi3b.yml` config file on it. The program will not launch if this file is not found.
+For these changes to have effect, reboot the Pi with `sudo reboot now`
 
 ## Full Launch Process
 
