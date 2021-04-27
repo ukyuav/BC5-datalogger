@@ -50,9 +50,8 @@ This will take some time and should only be done once.
 
 ### Setting up to launch on bootup
 
-_TODO_
-
-The reboot script can be found by doing 'crontab -e' on the pre-existing BC6 implementations and copying that command to the other planes. 
+The reboot script can be setup by running 'crontab -e' and entering the following line: 
+`@reboot cd home/pi/BC5-datalogger-master && sudo sh ./get_data.sh > home/pi/cronlog0 2>&1`
 
 ### Setting up USB drive
 
@@ -63,8 +62,13 @@ to "/media/sda1".
 In order to accomplish this and be able to launch the script on bootup, we need to be able to auto-mount the USB drive. 
 This can be done by following a guide to editing the "/etc/fstab" file [here](https://www.linuxbabe.com/desktop-linux/how-to-automount-file-systems-on-linux).
 
-There are some custom changes that will need to be made that are slightly different from this guide. Your fstab line should look like this:
-
+First, get the UUID by running `sudo blkid` and copying the UUID corresponding to the USB drive. 
+Then, make a permanent spot for the USB to mount by running `sudo mkdir /media/sda1`.
+Finally, edit the file at `/etc/fstab` with `sudo nano /etc/fstab` (or your favorite text editor) and append a line with this format:
+`UUID=<uuid-of-your-drive>  <mount-point>  <file-system-type>  <mount-option>  <dump>  <pass>`
+    
+Your fstab line should look like this, with a different UUID:
+    
 ```
 UUID=eb67c479-962f-4bcc-b3fe-cefaf908f01e  /media/sda1  vfat  defaults,nofail  0  2
 ```
