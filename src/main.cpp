@@ -34,7 +34,7 @@
 //Allows for data recording to be started by a pushbutton connected to GPIO pins
 //Set to zero to disable
 
-const char* FIFOFILE = "/home/pi/BC5-datalogger-master/bc6-printlog";
+const char* FIFOFILE = "bc6-printlog";
 
 using namespace std;
 using namespace vn::math;
