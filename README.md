@@ -51,7 +51,7 @@ This will take some time and should only be done once.
 ### Setting up to launch on bootup
 
 The reboot script can be setup by running 'crontab -e' and entering the following line: 
-`@reboot cd home/pi/BC5-datalogger && sudo sh ./get_data.sh > home/pi/cronlog0 2>&1`
+`@reboot cd home/pi/BC5-datalogger && sudo bash ./get_data.sh > home/pi/cronlog0 2>&1`
 Ensure the folder that you `cd` to in this command is the correct name! If you download the source zip rather than clone from github, the folder name will be ` home/pi/BC5-datalogger-master` instead (note the branch suffix).
 
 ### Setting up USB drive
