@@ -258,10 +258,10 @@ int main(int argc, const char *argv[]) {
 
   bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_COMMON, COMMON_MASK);
   bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_TIME, TIME_MASK);
-  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_IMU, IMU_MASK);
+  //bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_IMU, IMU_MASK);
   bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_GPS, GPS_MASK);
-  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_ATTITUDE, ATT_MASK);
-  bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_INS, INS_MASK);
+  //bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_ATTITUDE, ATT_MASK);
+  //bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_INS, INS_MASK);
 
   cout << "VectorNav Binary Output Register Size: " << bor_size;
 
@@ -341,7 +341,7 @@ int main(int argc, const char *argv[]) {
 		cout << "Push  button to begin." << endl;
 		fifo.open(FIFOFILE, ios::out);
 		fifo << "Push  button to begin." << endl;
-		fifo.close();
+        	fifo.close();
 		int hold = 1;
 		int btn;
 		while(hold ==1){
@@ -351,8 +351,9 @@ int main(int argc, const char *argv[]) {
 			}
 		}
 	}
-	cout << "Started sampling" << endl;
-
+	fifo.open(FIFOFILE, ios::out);
+	fifo << "Started sampling" << endl;
+        fifo.close();
 
   // setup scan event for the DAQ
   long event_on_samples = samplesPerChan/100; // trigger event every 0.1 seconds.

@@ -2,11 +2,15 @@
 sudo python3 $PWD/lcdlog.py & 
 sleep 2 # give time for FIFO to init
 sudo $PWD/build/getData /media/sda1/rpi3b.yml
+sleep 1
+echo "TRANSFERING DATA." > bc6-printlog
+sleep 1
+echo "DO NOT POWER OFF." > bc6-printlog
 sudo python3 $PWD/backup.py /media/sda1/rpi3b.yml
 # Convert
-sleep 2
-echo "CONVERTING DATA."> bc6-printlog
-sleep 2
+sleep 1
+echo "CONVERTING DATA." > bc6-printlog
+sleep 1
 echo "DO NOT POWER OFF." > bc6-printlog
 RUN_N=0
 CONF_PTH=`python3 -c 'import yaml; f = open("rpi3b.yml");data = yaml.load(f); print(data.get("output_dir"))'` 
