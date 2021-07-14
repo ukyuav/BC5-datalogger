@@ -1,5 +1,5 @@
 sample_duration: 100
-output_dir:  "/media/sda1" # WARNING: only use /media/sda1 if you have mounted a USB drive there. "/home/pi/logs"
+output_dir:  "/home/pi/BC6B" # WARNING: only use /media/sda1 if you have mounted a USB drive there. This will write driectly to the USB. 
 output_dir_backup: "/home/pi/BC6B"
 button_start: true
 gps_fix: 3 # 3 is LLA (3D)
@@ -10,7 +10,7 @@ vectornav:
 daq: 
   v_range: 5
   chan_num: 8
-  rate: 200
+  rate: 20000
 xbee: 
   rate: 1
   port: "/dev/pts/3"

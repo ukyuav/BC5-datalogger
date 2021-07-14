@@ -98,6 +98,9 @@ const uint16_t vec_buff_size=VNMAX*BUFFTIME;
 char* vec_cbuff[vec_buff_size];
 
 int main(int argc, const char *argv[]) {
+
+
+
 	wiringPiSetup();
 	pinMode(GPIO27, INPUT);
 	pullUpDnControl(GPIO27, PUD_DOWN);
@@ -153,8 +156,8 @@ int main(int argc, const char *argv[]) {
 		std::cout << " error : cannot open fifo file " << std :: endl; 
 		return 1;
 	}
-	fifo.close();
-
+	fifo.close();                  
+	
 	// acquire filenames 
 	int config_num = getConfigNumber(output_dir);
 	if (config_num < 0) { 
@@ -357,8 +360,12 @@ int main(int argc, const char *argv[]) {
 		int btn;
 		while(hold ==1){
 			btn = digitalRead(GPIO27);
-			if (btn == HIGH){
-				hold = 0;
+			if (btn == HIGH){ //ensure button is being held for at least 4 seconds
+				sleep(4);
+				btn = digitalRead(GPIO27);
+				if (btn == HIGH){
+					hold = 0;
+				}
 			}
 		}
 	}
@@ -416,6 +423,8 @@ int main(int argc, const char *argv[]) {
 	stop_sampling = true; // this kills transmission and file writing threads.
 	pthread_join(transmit_thread, NULL);
 	pthread_join(vn_write_thread, NULL);
+	//added
+	//  pthread_join(iMET_write_thread, NULL);
 
 	// wrap up daq
 	ulAInScanStop(deviceHandle);
@@ -629,6 +638,7 @@ void* vec_write(void* vp){
 	return NULL;
 }
 
+
 void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, unsigned long long eventData, void* userData) {
 
 	/*
@@ -705,7 +715,11 @@ void* wait_for_but(void*){
 	while(hold ==1){
 		btn = digitalRead(GPIO27);
 		if (btn == HIGH){
+			sleep(4); //hold button for 5 seconds to end sampling
+			btn = digitalRead(GPIO27);
+			if (btn == HIGH){
 			hold = 0;
+			}
 		}
 	}
 	return NULL;
