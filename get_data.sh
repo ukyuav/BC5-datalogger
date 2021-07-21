@@ -36,9 +36,7 @@ fi
 
 #sudo python3 $PWD/backup.py /media/sda1/rpi3b.yml
 #Convert
-sleep 2
-echo "moving files to USB" > bc6-printlog
-
+sleep 0.5
 #commented out to avoid running the automatic csv conversion
 
 RUN_N=0

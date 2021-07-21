@@ -74,7 +74,7 @@ int handleError(UlError detectError, const string info);
 void connectVs(VnSensor &vs, string vec_port, int baudrate);
 void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, unsigned long long eventData, void* userData);
 void vecnavBinaryEventHandle(void* userData, Packet& p, size_t index);
-void* vec_write(void* vp);
+//TODO: void* vec_write(void* vp); //TODO
 
 FILE* vecFile;
 size_t bor_size = 4; // header (start byte, group mask byte) + crc (2 bytes) 
@@ -84,7 +84,7 @@ unsigned long past_scan = 0;
 FILE* DAQFile;
 
 // char current_vec_bin[bor_size]; // TODO: this wont work because we need bor_size after the fact. NOTE: we can probably pass this in UserData and not need it in the global scope allowing for local alloc
-char* current_vec_bin;
+//TODO: char* current_vec_bin; //TODO
 stringstream current_daq_bin;
 volatile bool stop_sampling = false;
 
@@ -94,8 +94,8 @@ size_t vbuff_ind = 0;
 
 #define VNMAX 400
 #define BUFFTIME 2
-const uint16_t vec_buff_size=VNMAX*BUFFTIME;
-char* vec_cbuff[vec_buff_size];
+//TODO: const uint16_t vec_buff_size=VNMAX*BUFFTIME; //TODO
+//TODO: char* vec_cbuff[vec_buff_size]; //TODO
 
 int main(int argc, const char *argv[]) {
 
@@ -250,15 +250,15 @@ int main(int argc, const char *argv[]) {
 
 
 	// setup VectorNav
-	VnSensor vs;
-	connectVs(vs, vec_port, vec_baud);
+	//TODO: VnSensor vs; //TODO
+	//TODO connectVs(vs, vec_port, vec_baud); //TODO
 
 	// Let's query the sensor's model number.
-	string mn = vs.readModelNumber();
-	cout << "VectorNav connected. Model Number: " << mn << endl;
+	//TODO string mn = vs.readModelNumber(); //TODO
+	// TODO cout << "VectorNav connected. Model Number: " << mn << endl; //TODO
 
-	vecFile = fopen(vec_file_str, "wb+");
-
+	//TODO vecFile = fopen(vec_file_str, "wb+"); //TODO
+	/* //TODO
 	if(COMMON_MASK != COMMONGROUP_NONE){
 		bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_COMMON, COMMON_MASK);
 	}
@@ -282,25 +282,27 @@ int main(int argc, const char *argv[]) {
 	for (int i=0; i < vec_buff_size; i++) {
 		vec_cbuff[i] = new char[bor_size];
 	}
-
-	GpsConfigurationRegister gcr = vs.readGpsConfiguration();
-	cout << "GCR: " << gcr.mode << endl; 
+	*/ //TODO
+	//TODO GpsConfigurationRegister gcr = vs.readGpsConfiguration(); //TODO
+	/* TODO cout << "GCR: " << gcr.mode << endl; //TODO
 	cout << "Awaiting GPS fix" << endl;
 	fifo.open(FIFOFILE, ios::out);
 	fifo << "Awaiting GPS fix: " << min_gps_fix << endl; 
 	fifo.close();
 	int gps_fix = 0;
+	 //TODO
 	while(min_gps_fix > gps_fix) { 
 		GpsSolutionLlaRegister gslr = vs.readGpsSolutionLla();
 		gps_fix = gslr.gpsFix;
 		cout << gps_fix << endl;
 		sleep(1);
 	}
+	*/ //TODO
 	sleep(1);
 	fifo.open(FIFOFILE, ios::out);
 	fifo << "GPS Acquired." << endl; 
 	fifo.close();
-
+	/* TODO
 	pthread_t vn_write_thread;
 	pthread_create(&vn_write_thread, NULL, vec_write, NULL);
 	vs.registerAsyncPacketReceivedHandler(NULL, vecnavBinaryEventHandle);
@@ -329,7 +331,7 @@ int main(int argc, const char *argv[]) {
 
 	// overwrites test output
 	vs.writeBinaryOutput1(bor);
-
+	*/ //TODO
 
 	// setup DAQ
 	short LowChan = 0;
@@ -422,7 +424,7 @@ int main(int argc, const char *argv[]) {
 	cout << "enter pressed, should be wrapping up" << endl;
 	stop_sampling = true; // this kills transmission and file writing threads.
 	pthread_join(transmit_thread, NULL);
-	pthread_join(vn_write_thread, NULL);
+	//TODO pthread_join(vn_write_thread, NULL); //TODO
 	//added
 	//  pthread_join(iMET_write_thread, NULL);
 
@@ -434,12 +436,13 @@ int main(int argc, const char *argv[]) {
 	fflush(DAQFile);
 	fclose(DAQFile);
 
+	/* TODO
 	// wrap up vecnav
 	vs.unregisterAsyncPacketReceivedHandler();
 	vs.disconnect();
 	fflush(vecFile);
 	fclose(vecFile);
-
+	*/ //TODO
 	cout << "Sampling completed." << endl;
 	sleep(1);
 	fifo.open(FIFOFILE, ios::out);
@@ -570,7 +573,7 @@ void connectVs(VnSensor &vs, string vec_port, int baudrate) {
 		}
 	}
 }
-
+/* TODO
 void vecnavBinaryEventHandle(void *userData, Packet& p, size_t index)
 {
 	// 	The following line and the vecFile.close() command at the bottom of this function are not recommended when the sync mount option is set for the filesystem
@@ -595,11 +598,11 @@ void vecnavBinaryEventHandle(void *userData, Packet& p, size_t index)
 		if (pack_size != bor_size){ 
 			cout << "packet discrepency: " << bor_size << " ; " << pack_size << endl; 
 		}
-		/*
-		 * get current pointer to the circular buffer
-		 * increment current_pointer, if the pointer is overflowed, set pointer to 0
-		 * insert p_cstr into the buffer
-		 */
+		//
+		// get current pointer to the circular buffer
+		// increment current_pointer, if the pointer is overflowed, set pointer to 0
+		// insert p_cstr into the buffer
+		//
 		if(vbuff_ind  == (vec_buff_size/2)) {  // in the second half of the buffer
 			pthread_mutex_lock(&halftwo);
 			pthread_mutex_unlock(&halfone);
@@ -614,8 +617,9 @@ void vecnavBinaryEventHandle(void *userData, Packet& p, size_t index)
 		first_sample = true;
 	}
 }
-
+*/ //TODO
 /* writes out available portions of the vectornav data buffer */
+/* //TODO
 void* vec_write(void* vp){ 
 	while(!first_sample) {
 		sleep(0.1);
@@ -637,7 +641,7 @@ void* vec_write(void* vp){
 	}
 	return NULL;
 }
-
+*/
 
 void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, unsigned long long eventData, void* userData) {
 
@@ -688,6 +692,7 @@ void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, uns
 
 
 void * transmit(void * ptr){
+	/* //TODO
 	struct TransmitArgs *args = (struct TransmitArgs *)ptr; 
 	int rate = args->xbee_rate;
 	char *port = args->xbee_port;
@@ -703,6 +708,7 @@ void * transmit(void * ptr){
 		serialPuts(fd, current_daq_bin.str().c_str());
 		usleep((int)(1000000/rate));
 	}
+	*/ //TODO
 	return NULL;
 }
 

@@ -14,7 +14,7 @@ while True:
     time.sleep(0.05)
     line = sub.stdout.read().decode()
     time.sleep(0.05)
-    if "SanDisk" not in line:
+    if "Flash Drive" not in line:
         exit()
     else:
         time.sleep(0.01)
