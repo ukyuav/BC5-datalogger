@@ -1,6 +1,15 @@
-#/bin/bash
+#bin/bash
 sudo python3 $PWD/lcdlog.py & 
 sleep 5 # give time for FIFO to init
+
+FILE=/home/pi/BC6B/DAQDATA5.RAW
+if [ -f "$FILE" ]; then
+	sudo rm /home/pi/BC6B/DAQ*
+	sudo rm /home/pi/BC6B/CONF*
+	sudo rm /home/pi/BC6B/VN*
+	sleep 1
+fi
+
 sudo python3 iMET_sampling.py /home/pi/BC6B/ &
 #if the usb is ever disconnected, usb_disconnect.py will stop itself
 sudo python3 usb_disconnect.py &
