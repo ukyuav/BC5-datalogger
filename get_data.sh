@@ -56,22 +56,22 @@ while [ $RUN_N -lt 100 ]; do
     NAME="$NAME$RUN_N$EXT"
     FULL_CONF="$CONF_PTH$NAME"
   else
-    (( RUN_N-- ))
+    #(( RUN_N-- )) ##possibly not needed
     echo $RUN_N
-    sleep 0.5
+    sleep 1
     sudo cp /home/pi/BC6B/VNDATA$RUN_N.RAW /media/sda1/VNDATA$RUN_N.RAW
-    sleep 0.5
+    sleep 1
     sudo cp /home/pi/BC6B/DAQDATA$RUN_N.RAW /media/sda1/DAQDATA$RUN_N.RAW
-    sleep 0.5
+    sleep 1
     sudo cp /home/pi/BC6B/IMETDATA$RUN_N.CSV /media/sda1/IMETDATA$RUN_N.CSV
-    sleep 0.5
+    sleep 1
     sudo cp /home/pi/BC6B/CONFIG$RUN_N.YML /media/sda1/CONFIG$RUN_N.YML
     sudo ./extract_all.sh $CONF_PTH $RUN_N
-    sleep 0.5
+    sleep 60
     sudo cp /home/pi/BC6B/VNDATA$RUN_N.CSV /media/sda1/VNDATA$RUN_N.CSV
-    sleep 0.5
+    sleep 1 #TODO
     sudo cp /home/pi/BC6B/DAQDATA$RUN_N.CSV /media/sda1/DAQDATA$RUN_N.CSV
-    sleep 0.5
+    sleep 1
     break
   fi
 done

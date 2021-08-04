@@ -64,7 +64,7 @@ struct TransmitArgs {
 };
 
 // Method declarations for future use.
-void* transmit(void * ptr);
+void* transmit(void * ptr); //TODO TODO
 void* wait_for_sig(void*);
 void* wait_for_but(void*);
 Range getGain(int vRange);
@@ -247,7 +247,7 @@ int main(int argc, const char *argv[]) {
 	configFile.open(conf_file_str);
 	configFile << yamlFile.rdbuf(); // simply clone the config file to this run's config file
 	configFile.flush();
-
+	
 
 	// setup VectorNav
 	VnSensor vs;
@@ -258,7 +258,7 @@ int main(int argc, const char *argv[]) {
 	cout << "VectorNav connected. Model Number: " << mn << endl;
 
 	vecFile = fopen(vec_file_str, "wb+");
-
+	
 	if(COMMON_MASK != COMMONGROUP_NONE){
 		bor_size += 2 + Packet::computeNumOfBytesForBinaryGroupPayload(BINARYGROUP_COMMON, COMMON_MASK);
 	}
@@ -282,24 +282,27 @@ int main(int argc, const char *argv[]) {
 	for (int i=0; i < vec_buff_size; i++) {
 		vec_cbuff[i] = new char[bor_size];
 	}
-
+	
 	GpsConfigurationRegister gcr = vs.readGpsConfiguration();
-	cout << "GCR: " << gcr.mode << endl; 
+	cout << "GCR: " << gcr.mode << endl;
 	cout << "Awaiting GPS fix" << endl;
 	fifo.open(FIFOFILE, ios::out);
 	fifo << "Awaiting GPS fix: " << min_gps_fix << endl; 
 	fifo.close();
 	int gps_fix = 0;
+	
 	while(min_gps_fix > gps_fix) { 
 		GpsSolutionLlaRegister gslr = vs.readGpsSolutionLla();
 		gps_fix = gslr.gpsFix;
 		cout << gps_fix << endl;
 		sleep(1);
 	}
+	
 	sleep(1);
 	fifo.open(FIFOFILE, ios::out);
-	fifo << "GPS Acquired." << endl; 
+	fifo << "GPS Acquired." << endl;	
 	fifo.close();
+
 
 	pthread_t vn_write_thread;
 	pthread_create(&vn_write_thread, NULL, vec_write, NULL);
@@ -329,7 +332,7 @@ int main(int argc, const char *argv[]) {
 
 	// overwrites test output
 	vs.writeBinaryOutput1(bor);
-
+	
 
 	// setup DAQ
 	short LowChan = 0;
@@ -404,7 +407,7 @@ int main(int argc, const char *argv[]) {
 	struct TransmitArgs xbee_args;
 	xbee_args.xbee_port = strdup(xbee_port.c_str());
 	xbee_args.xbee_rate = xbee_rate; 
-	pthread_t transmit_thread; 
+	pthread_t transmit_thread;
 	pthread_t timer_thread;
 	pthread_create(&transmit_thread, NULL, transmit, &xbee_args);
 	if (button_start) { 
@@ -421,10 +424,10 @@ int main(int argc, const char *argv[]) {
 	pthread_cancel(timer_thread);
 	cout << "enter pressed, should be wrapping up" << endl;
 	stop_sampling = true; // this kills transmission and file writing threads.
+	
 	pthread_join(transmit_thread, NULL);
 	pthread_join(vn_write_thread, NULL);
-	//added
-	//  pthread_join(iMET_write_thread, NULL);
+	
 
 	// wrap up daq
 	ulAInScanStop(deviceHandle);
@@ -434,12 +437,13 @@ int main(int argc, const char *argv[]) {
 	fflush(DAQFile);
 	fclose(DAQFile);
 
+	
 	// wrap up vecnav
 	vs.unregisterAsyncPacketReceivedHandler();
 	vs.disconnect();
 	fflush(vecFile);
 	fclose(vecFile);
-
+	
 	cout << "Sampling completed." << endl;
 	sleep(1);
 	fifo.open(FIFOFILE, ios::out);
@@ -570,7 +574,6 @@ void connectVs(VnSensor &vs, string vec_port, int baudrate) {
 		}
 	}
 }
-
 void vecnavBinaryEventHandle(void *userData, Packet& p, size_t index)
 {
 	// 	The following line and the vecFile.close() command at the bottom of this function are not recommended when the sync mount option is set for the filesystem
@@ -595,11 +598,11 @@ void vecnavBinaryEventHandle(void *userData, Packet& p, size_t index)
 		if (pack_size != bor_size){ 
 			cout << "packet discrepency: " << bor_size << " ; " << pack_size << endl; 
 		}
-		/*
-		 * get current pointer to the circular buffer
-		 * increment current_pointer, if the pointer is overflowed, set pointer to 0
-		 * insert p_cstr into the buffer
-		 */
+		//
+		// get current pointer to the circular buffer
+		// increment current_pointer, if the pointer is overflowed, set pointer to 0
+		// insert p_cstr into the buffer
+		//
 		if(vbuff_ind  == (vec_buff_size/2)) {  // in the second half of the buffer
 			pthread_mutex_lock(&halftwo);
 			pthread_mutex_unlock(&halfone);
@@ -616,6 +619,7 @@ void vecnavBinaryEventHandle(void *userData, Packet& p, size_t index)
 }
 
 /* writes out available portions of the vectornav data buffer */
+
 void* vec_write(void* vp){ 
 	while(!first_sample) {
 		sleep(0.1);
@@ -685,9 +689,8 @@ void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, uns
 	}
 }
 
-
-
 void * transmit(void * ptr){
+	
 	struct TransmitArgs *args = (struct TransmitArgs *)ptr; 
 	int rate = args->xbee_rate;
 	char *port = args->xbee_port;
@@ -703,6 +706,7 @@ void * transmit(void * ptr){
 		serialPuts(fd, current_daq_bin.str().c_str());
 		usleep((int)(1000000/rate));
 	}
+	
 	return NULL;
 }
 
