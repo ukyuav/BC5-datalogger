@@ -64,12 +64,16 @@ try:
 
 #open iMET file
 #first get filename
+    config = "/home/pi/BC6B/CONFIG"
     location = sys.argv[1]
     init_iMET_filename = "IMETDATA"
     for i in range(100):
-        to_append = str(i)+".CSV"
+        j = i-1
+        to_append = str(j)+".CSV" #TODO was i
+        config_to_append = str(i) + ".YML"
+        true_config = config + config_to_append
         iMET_appended = location + init_iMET_filename + to_append
-        file_exists = os.path.isfile(iMET_appended)
+        file_exists = os.path.isfile(true_config)
         if file_exists == 0: #if file doesn't exist exit loop and create it
 			     #file is created in the following while loop
             break
