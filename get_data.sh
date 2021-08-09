@@ -70,10 +70,10 @@ while [ $RUN_N -lt 100 ]; do
     sudo cp /home/pi/BC6B/CONFIG$RUN_N.YML /media/sda1/CONFIG$RUN_N.YML
     sudo ./extract_all.sh $USB_PTH $RUN_N
     sleep 20
-    sudo cp /home/pi/BC6B/VNDATA$RUN_N.CSV /media/sda1/VNDATA$RUN_N.CSV
-    sleep 1 #TODO
-    sudo cp /home/pi/BC6B/DAQDATA$RUN_N.CSV /media/sda1/DAQDATA$RUN_N.CSV
-    sleep 1
+    #sudo cp /home/pi/BC6B/VNDATA$RUN_N.CSV /media/sda1/VNDATA$RUN_N.CSV
+    #sleep 1 #TODO
+    #sudo cp /home/pi/BC6B/DAQDATA$RUN_N.CSV /media/sda1/DAQDATA$RUN_N.CSV
+    #sleep 1
     break
   fi
 done
