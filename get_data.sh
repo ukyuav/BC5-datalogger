@@ -65,7 +65,7 @@ while [ $RUN_N -lt 100 ]; do
     sleep 1
     sudo cp /home/pi/BC6B/DAQDATA$RUN_N.RAW /media/sda1/DAQDATA$RUN_N.RAW
     sleep 1
-    sudo cp /home/pi/BC6B/IMETDATA$RUN_N.CSV /media/sda1/IMETDATA$RUN_N.CSV
+    sudo cp /home/pi/BC6B/SAMADATA$RUN_N.CSV /media/sda1/SAMADATA$RUN_N.CSV #TODO: change SAMA to iMET
     sleep 5
     sudo cp /home/pi/BC6B/CONFIG$RUN_N.YML /media/sda1/CONFIG$RUN_N.YML
     sudo ./extract_all.sh $USB_PTH $RUN_N

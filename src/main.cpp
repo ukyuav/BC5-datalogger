@@ -302,12 +302,7 @@ int main(int argc, const char *argv[]) {
 	fifo.open(FIFOFILE, ios::out);
 	fifo << "GPS Acquired." << endl;	
 	fifo.close();
-<<<<<<< HEAD
 
-
-=======
-	
->>>>>>> 81498be71a3b1e96acd061e52768a61fcec12fe1
 	pthread_t vn_write_thread;
 	pthread_create(&vn_write_thread, NULL, vec_write, NULL);
 	vs.registerAsyncPacketReceivedHandler(NULL, vecnavBinaryEventHandle);
@@ -428,13 +423,7 @@ int main(int argc, const char *argv[]) {
 	pthread_cancel(timer_thread);
 	cout << "enter pressed, should be wrapping up" << endl;
 	stop_sampling = true; // this kills transmission and file writing threads.
-<<<<<<< HEAD
-	
-=======
-//	fifo.open(FIFOFILE, ios::out);
-//	fifo << "ending VN thread" << endl;
-//	fifo.close(); //TODO TODO
->>>>>>> 81498be71a3b1e96acd061e52768a61fcec12fe1
+
 	pthread_join(transmit_thread, NULL);
 	pthread_join(vn_write_thread, NULL);
 	
