@@ -11,6 +11,8 @@ if [ -f "$FILE" ]; then
 fi
 
 sudo python3 iMET_sampling.py /home/pi/BC6B/ &
+sleep 1
+sudo python3 SAMA_sampling.py /home/pi/BC6B/ &
 #if the usb is ever disconnected, usb_disconnect.py will stop itself
 sudo python3 usb_disconnect.py &
 sudo $PWD/build/getData /media/sda1/rpi3b.yml
@@ -21,6 +23,8 @@ echo "DO NOT POWER OFF." > bc6-printlog
 sleep 1
 #stop iMET testing
 sudo pkill -9 -f iMET_sampling.py
+sleep 0.1
+sudo pkill -9 -f SAMA_sampling.py
 sleep 1
 
 echo "CONVERTING DATA" > bc6-printlog
@@ -71,6 +75,8 @@ while [ $RUN_N -lt 100 ]; do
     sudo cp /home/pi/BC6B/DAQDATA$RUN_N.RAW /media/sda1/DAQDATA$RUN_N.RAW
     sleep 0.5
     sudo cp /home/pi/BC6B/IMETDATA$RUN_N.CSV /media/sda1/IMETDATA$RUN_N.CSV
+    sleep 0.5
+    sudo cp /home/pi/BC6B/SAMADATA$RUN_N.CSV /media/sda1/SAMADATA$RUN_N.CSV
     sleep 0.5
     sudo cp /home/pi/BC6B/CONFIG$RUN_N.YML /media/sda1/CONFIG$RUN_N.YML
     sudo ./extract_all.sh $CONF_PTH $RUN_N
