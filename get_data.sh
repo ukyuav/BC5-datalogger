@@ -2,6 +2,8 @@
 sudo python3 $PWD/lcdlog.py & 
 sleep 5 # give time for FIFO to init
 sudo python3 iMET_sampling.py /home/pi/BC6B/ &
+sleep 0.1
+sudo python3 SAMA_sampling.py /home/pi/BC6B/ &
 #if the usb is ever disconnected, usb_disconnect.py will stop itself
 sudo python3 usb_disconnect.py &
 sudo $PWD/build/getData /media/sda1/rpi3b.yml
