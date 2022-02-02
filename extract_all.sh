@@ -18,6 +18,6 @@ if [[ $USER != "root" ]]; then
 fi 
 
 #TODO: uncomment the following line to re-enable automatic VectorNav-csv conversion
-sudo ./build/extract $1/VNDATA$2.RAW
+#sudo ./build/extract $1/VNDATA$2.RAW
 #TODO: uncomment the following line to re-enable automatic daq-csv conversion
 sudo ./build/DAQ2CSV $1/DAQDATA$2.RAW $1/VNDATA$2.RAW $1/CONFIG$2.YML
