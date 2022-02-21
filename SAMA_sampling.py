@@ -44,9 +44,9 @@ except: #error if no adc attached.
 
 #check if iMet attached
 try:
-    ser_iMET = serial.Serial(
+    ser_SAMA = serial.Serial(
             port='/dev/ttyUSB1',
-            baudrate = 57600,     
+            baudrate = 9600,
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
             bytesize=serial.EIGHTBITS,
@@ -58,7 +58,7 @@ except:
 
 try:
     collect_ADC = LED(27)
-    stop_button = Button(25, pull_up=False) #TODO: was 25, changed to 13/17
+    stop_button = Button(25, pull_up=False)
 
     counter=0#potentially unneccessary
 
@@ -66,13 +66,13 @@ try:
 #first get filename
     config = "/home/pi/BC6B/CONFIG"
     location = sys.argv[1]
-    init_iMET_filename = "IMETDATA"
+    init_SAMA_filename = "SAMADATA"
     for i in range(100):
         j = i-1
         to_append = str(j)+".CSV" #TODO was i
         config_to_append = str(i) + ".YML"
         true_config = config + config_to_append
-        iMET_appended = location + init_iMET_filename + to_append
+        SAMA_appended = location + init_SAMA_filename + to_append
         file_exists = os.path.isfile(true_config)
         if file_exists == 0: #if file doesn't exist exit loop and create it
 			     #file is created in the following while loop
@@ -84,25 +84,23 @@ try:
     temp = 1
     while(True):
         if use_ADC == 1:
-            iMET_file = open(iMET_appended, "a+") #open new iMET file appending
-            data_iMET = ser_iMET.readline().decode()
+            SAMA_file = open(SAMA_appended, "a+") #open new iMET file appending
+            data_SAMA = ser_SAMA.readline().decode()
             collect_ADC.on() #tell arduino to grab data
             collect_ADC.off()
             data_ADC = ser_ADC.readline().decode()
 	    #data_all = data_ADC + data_iMET
             #ser_xBee.write(data_all)
-            iMET_file.write(data_iMET)
-            iMET_file.write("\n")
-            iMET_file.close()
+            SAMA_file.write(data_SAMA)
+            SAMA_file.write("\n")
+            SAMA_file.close()
 		
-        else:
-        
-            iMET_file = open(iMET_appended, "a+") #open new iMET file appending
-            data_iMET = ser_iMET.readline().decode()
-            iMET_file.write(data_iMET)
-            print(data_iMET) #TODO
-            iMET_file.write("\n")
-            iMET_file.close()
+        else: 
+            SAMA_file = open(SAMA_appended, "a+") #open new iMET file appending
+            data_SAMA = ser_SAMA.readline().decode()
+            SAMA_file.write(data_SAMA)
+            SAMA_file.write("\n")
+            SAMA_file.close()
             time.sleep(1)
     
 #stop_button.wait_for_press()
@@ -122,7 +120,7 @@ try:
     """
 except:
     print("exception thrown")
-    if not iMET_file.closed:
-        iMET_file.close()
+    if not SAMA_file.closed:
+        SAMA_file.close()
 		
 		

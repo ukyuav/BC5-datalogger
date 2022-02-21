@@ -42,7 +42,8 @@ echo "moving files to USB" > bc6-printlog
 #commented out to avoid running the automatic csv conversion
 
 RUN_N=0
-CONF_PTH=`python3 -c 'import yaml; f = open("rpi3b.yml");data = yaml.load(f); print(data.get("output_dir"))'` 
+CONF_PTH=`python3 -c 'import yaml; f = open("rpi3b.yml");data = yaml.load(f); print(data.get("output_dir"))'`
+USB_PTH=`python3 -c 'import yaml; f = open("rpi3b.yml");data = yaml.load(f); print(data.get("usb_dir"))'`
 NAME="/CONFIG"
 EXT=".YML"
 NAME="$NAME$RUN_N$EXT"
@@ -56,24 +57,25 @@ while [ $RUN_N -lt 100 ]; do
     NAME="$NAME$RUN_N$EXT"
     FULL_CONF="$CONF_PTH$NAME"
   else
-    (( RUN_N-- ))
-    echo $RUN_N
-    sleep 0.5
+   #(( RUN_N-- )) ##possibly not needed
+    sleep 1
+    (( RUN_N-- )) #this is included on other planes but was causing issues on this one
+    sleep 10
     sudo cp /home/pi/BC6B/VNDATA$RUN_N.RAW /media/sda1/VNDATA$RUN_N.RAW
-    sleep 0.5
+    sleep 1
     sudo cp /home/pi/BC6B/DAQDATA$RUN_N.RAW /media/sda1/DAQDATA$RUN_N.RAW
-    sleep 0.5
-    sudo cp /home/pi/BC6B/IMETDATA$RUN_N.CSV /media/sda1/IMETDATA$RUN_N.CSV
-    sleep 0.5
+    sleep 1
+    sudo cp /home/pi/BC6B/SAMADATA$RUN_N.CSV /media/sda1/SAMADATA$RUN_N.CSV #TODO: change SAMA to iMET
+    sleep 5
     sudo cp /home/pi/BC6B/CONFIG$RUN_N.YML /media/sda1/CONFIG$RUN_N.YML
-    sudo ./extract_all.sh $CONF_PTH $RUN_N
-    sleep 0.5
-    sudo cp /home/pi/BC6B/VNDATA$RUN_N.CSV /media/sda1/VNDATA$RUN_N.CSV
-    sleep 0.5
-    sudo cp /home/pi/BC6B/DAQDATA$RUN_N.CSV /media/sda1/DAQDATA$RUN_N.CSV
-    sleep 0.5
+    sudo ./extract_all.sh $USB_PTH $RUN_N
+    sleep 20
+    #sudo cp /home/pi/BC6B/VNDATA$RUN_N.CSV /media/sda1/VNDATA$RUN_N.CSV
+    #sleep 1 #TODO
+    #sudo cp /home/pi/BC6B/DAQDATA$RUN_N.CSV /media/sda1/DAQDATA$RUN_N.CSV
+    #sleep 1
     break
   fi
 done
-sleep 1
+sleep 10
 echo "OK to power off" > bc6-printlog

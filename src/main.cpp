@@ -64,7 +64,7 @@ struct TransmitArgs {
 };
 
 // Method declarations for future use.
-void* transmit(void * ptr);
+void* transmit(void * ptr); //TODO TODO
 void* wait_for_sig(void*);
 void* wait_for_but(void*);
 Range getGain(int vRange);
@@ -247,7 +247,7 @@ int main(int argc, const char *argv[]) {
 	configFile.open(conf_file_str);
 	configFile << yamlFile.rdbuf(); // simply clone the config file to this run's config file
 	configFile.flush();
-
+	
 
 	// setup VectorNav
 	VnSensor vs;
@@ -406,7 +406,7 @@ int main(int argc, const char *argv[]) {
 	struct TransmitArgs xbee_args;
 	xbee_args.xbee_port = strdup(xbee_port.c_str());
 	xbee_args.xbee_rate = xbee_rate; 
-	pthread_t transmit_thread; 
+	pthread_t transmit_thread;
 	pthread_t timer_thread;
 	pthread_create(&transmit_thread, NULL, transmit, &xbee_args);
 	if (button_start) { 
@@ -423,13 +423,13 @@ int main(int argc, const char *argv[]) {
 	pthread_cancel(timer_thread);
 	cout << "enter pressed, should be wrapping up" << endl;
 	stop_sampling = true; // this kills transmission and file writing threads.
+
 //	fifo.open(FIFOFILE, ios::out);
 //	fifo << "ending VN thread" << endl;
-//	fifo.close(); //TODO TODO
+//	fifo.close(); //TODO TOD
 	pthread_join(transmit_thread, NULL);
 	pthread_join(vn_write_thread, NULL);
-	//added
-	//  pthread_join(iMET_write_thread, NULL);
+	
 
 	// wrap up daq
 	ulAInScanStop(deviceHandle);
@@ -690,8 +690,6 @@ void daqEventHandle(DaqDeviceHandle daqDeviceHandle, DaqEventType eventType, uns
 		printf("\nThe scan using device %s (%s) is complete \n", activeDevDescriptor.productName, activeDevDescriptor.uniqueId);
 	}
 }
-
-
 
 void * transmit(void * ptr){
 	
