@@ -1,16 +1,16 @@
-sample_duration: 100
+sample_duration: 200
 output_dir:  "/home/pi/BC6B" # WARNING: only use /media/sda1 if you have mounted a USB drive there. This will write driectly to the USB. 
 output_dir_backup: "/home/pi/BC6B"
 button_start: true
-gps_fix: 3 # 3 is LLA (3D)
+gps_fix: 0 # 3 is LLA (3D)
 vectornav:
   baud: 460800 # if you are having sync problems, bump the baudrate.
   port: "/dev/ttyUSB0"
-  rate: 200
+  rate: 100
 daq: 
   v_range: 5
   chan_num: 8
-  rate: 20000
+  rate: 100
 xbee: 
   rate: 1
   port: "/dev/pts/3"
