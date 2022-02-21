@@ -44,8 +44,8 @@ except: #error if no adc attached.
 
 #check if iMet attached
 try:
-    ser_SAMA = serial.Serial(
-            port='/dev/ttyUSB0',
+    ser_GPS = serial.Serial(
+            port='/dev/ttyACM0',
             baudrate = 9600,
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
@@ -53,23 +53,23 @@ try:
             timeout=1
 	)
 except:
-        print("no SAMA-type-iMET attached, cannot continue. \n")
+        print("no usb-gps attached, cannot continue. \n")
         exit()
 
 try:
     collect_ADC = LED(27)
-    stop_button = Button(25, pull_up=False) #TODO: was 25, changed to 13/17
+    stop_button = Button(25, pull_up=False)
 
     counter=0#potentially unneccessary
 
 #open iMET file
 #first get filename
     location = sys.argv[1]
-    init_SAMA_filename = "SAMADATA"
+    init_GPS_filename = "GPSDATA"
     for i in range(100):
         to_append = str(i)+".CSV"
-        SAMA_appended = location + init_SAMA_filename + to_append
-        file_exists = os.path.isfile(SAMA_appended)
+        GPS_appended = location + init_GPS_filename + to_append
+        file_exists = os.path.isfile(GPS_appended)
         if file_exists == 0: #if file doesn't exist exit loop and create it
 			     #file is created in the following while loop
             break
@@ -79,25 +79,28 @@ try:
     temp = 1
     while(True):
         if use_ADC == 1:
-            SAMA_file = open(SAMA_appended, "a+") #open new iMET file appending
-            data_SAMA = ser_SAMA.readline().decode()
+            GPS_file = open(GPS_appended, "a+") #open new iMET file appending
+            data_GPS = ser_GPS.readline().decode()
             collect_ADC.on() #tell arduino to grab data
             collect_ADC.off()
             data_ADC = ser_ADC.readline().decode()
 	    #data_all = data_ADC + data_iMET
             #ser_xBee.write(data_all)
-            SAMA_file.write(data_SAMA)
-            SAMA_file.write("\n")
-            SAMA_file.close()
+            GPS_file.write(data_GPS)
+            GPS_file.write("\n")
+            GPS_file.close()
 		
         else: 
-            SAMA_file = open(SAMA_appended, "a+") #open new iMET file appending
-            data_SAMA = ser_SAMA.readline().decode()
-            #print(data_SAMA) #TODO: remove after testing
-            SAMA_file.write(data_SAMA)
-            SAMA_file.write("\n")
-            SAMA_file.close()
+            GPS_file = open(GPS_appended, "a+") #open new iMET file appending
+            data_GPS = ser_GPS.readline().decode()
+            print(data_GPS) #TODO: remove after testing
+            GPS_file.write(data_GPS)
+            GPS_file.write("\n")
+            GPS_file.close()
+            #time.sleep(1) #TODO: probably not needed, was used to test potential bugs in GPS output
     
+#stop_button.wait_for_press()
+#print("aye bro the button was pressed")
     """
     time.sleep(1)
     for x in range (10):
@@ -113,7 +116,7 @@ try:
     """
 except:
     print("exception thrown")
-    if not SAMA_file.closed:
-        SAMA_file.close()
+    if not GPS_file.closed:
+        GPS_file.close()
 		
 		

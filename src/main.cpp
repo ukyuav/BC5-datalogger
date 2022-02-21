@@ -208,7 +208,7 @@ int main(int argc, const char *argv[]) {
 		cerr << "Vectornav sampling rate cannot be higher than DAQ sampling rate in this configuration." << endl;
 		return -1;
 	}
-
+/* //TODO TODO TODO
 	DaqDeviceDescriptor devDescriptors[MAX_DEV_COUNT];
 	DaqDeviceInterface interfaceType = ANY_IFC;
 	DaqDeviceDescriptor DeviceDescriptor;
@@ -236,10 +236,10 @@ int main(int argc, const char *argv[]) {
 	// for (int i = 0; i < (int) numDevs; i++)
 	cout << devDescriptors[0].productName << "(" << devDescriptors[0].uniqueId << ")" << endl;
 	DeviceDescriptor = devDescriptors[0];
-
+*/ //TODO TODO TODO
 	// get a handle to the DAQ device associated with the first descriptor
-	deviceHandle = ulCreateDaqDevice(DeviceDescriptor);
-	detectError = ulConnectDaqDevice(deviceHandle);
+	//TODO TODO TODO deviceHandle = ulCreateDaqDevice(DeviceDescriptor);
+	//TODO TODO TODO detectError = ulConnectDaqDevice(deviceHandle);
 	// Write config values back to config.txt
 	// TODO: there might be a better way to do this
 	ofstream configFile;
@@ -333,6 +333,7 @@ int main(int argc, const char *argv[]) {
 	vs.writeBinaryOutput1(bor);
 	*/ //TODO
 
+	/*TODO TODO TODO
 	// setup DAQ
 	short LowChan = 0;
 	short HighChan = num_chan - 1;
@@ -350,7 +351,7 @@ int main(int argc, const char *argv[]) {
 	// DAQ is master to Vectornav, attached VN_SYNCIN to CLKOUT on DAQ.
 	ScanOption options = (ScanOption) (SO_DEFAULTIO | SO_CONTINUOUS | SO_PACEROUT);
 	AInScanFlag flags = AINSCAN_FF_DEFAULT;
-
+*/ //TODO TODO TODO
 	sleep(1);
 	// Wait to start recording if Push to Start is enabled
 	if(button_start){
@@ -374,7 +375,7 @@ int main(int argc, const char *argv[]) {
 	fifo.open(FIFOFILE, ios::out);
 	fifo << "Started sampling" << endl;
 	fifo.close();
-
+/* //TODO TODO TODO
 	// setup scan event for the DAQ
 	long event_on_samples = samplesPerChan/100; // trigger event every 0.1 seconds.
 	DaqEventType scan_event = (DE_ON_DATA_AVAILABLE);
@@ -401,7 +402,7 @@ int main(int argc, const char *argv[]) {
 	}
 
 	cout << "Actual sample rate: " << rated << endl;
-
+*/ //TODO TODO TODO
 	// setup transmitter and timer threads
 	struct TransmitArgs xbee_args;
 	xbee_args.xbee_port = strdup(xbee_port.c_str());
@@ -427,7 +428,7 @@ int main(int argc, const char *argv[]) {
 	//TODO pthread_join(vn_write_thread, NULL); //TODO
 	//added
 	//  pthread_join(iMET_write_thread, NULL);
-
+/* TODO TODO TODO
 	// wrap up daq
 	ulAInScanStop(deviceHandle);
 	ulDisableEvent(deviceHandle, scan_event);
@@ -435,7 +436,7 @@ int main(int argc, const char *argv[]) {
 	sleep(1);
 	fflush(DAQFile);
 	fclose(DAQFile);
-
+*/ //TODO TODO TODO
 	/* TODO
 	// wrap up vecnav
 	vs.unregisterAsyncPacketReceivedHandler();
